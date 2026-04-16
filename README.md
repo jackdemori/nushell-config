@@ -8,9 +8,9 @@ Prerequisites: [Homebrew](https://brew.sh/) and nushell (`brew install nushell`)
 
 Then:
 
-```sh
+`
 curl -fsSL https://raw.githubusercontent.com/jackdemori/nushell-config/main/install.sh | bash
-```
+`
 
 That is all. The command downloads the repository tarball into `~/.config/nushell/`, then delegates to `setup.nu`. This script wires the components into the primary nushell configuration directory and establishes nu as the default login shell.
 
