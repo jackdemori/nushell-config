@@ -1,5 +1,5 @@
 export use completions.nu *
-use ../ui [step done clear-status]
+use ../ui [done with-spinner clear-status]
 
 export def is_git_repo [] {
     (do -i { 
@@ -17,15 +17,14 @@ export def "git history" [
         return
     }
 
-    step --tick 0 $"Reading git log \(last ($max_lines)\)"
-    let result = (git log --pretty=%h»¦«%s»¦«%aN»¦«%aE»¦«%aD -n $max_lines
-        | lines
-        | split column "»¦«" commit subject name email date
-        | upsert date {|d| $d.date | into datetime}
-        | sort-by date
-        | reverse)
-    clear-status
-    $result
+    with-spinner $"Reading git log \(last ($max_lines)\)" {||
+        git log --pretty=%h»¦«%s»¦«%aN»¦«%aE»¦«%aD -n $max_lines
+            | lines
+            | split column "»¦«" commit subject name email date
+            | upsert date {|d| $d.date | into datetime}
+            | sort-by date
+            | reverse
+    }
 }
 
 export def "git histogram" [
@@ -38,15 +37,14 @@ export def "git histogram" [
         return
     }
 
-    step --tick 0 $"Computing commit histogram \(last ($max_lines)\)"
-    let result = (git log --pretty=%h»¦«%aN»¦«%s»¦«%aD
-        | lines
-        | split column "»¦«" sha1 committer desc merged_at
-        | histogram committer merger
-        | sort-by merger
-        | reverse)
-    clear-status
-    $result
+    with-spinner $"Computing commit histogram \(last ($max_lines)\)" {||
+        git log --pretty=%h»¦«%aN»¦«%s»¦«%aD
+            | lines
+            | split column "»¦«" sha1 committer desc merged_at
+            | histogram committer merger
+            | sort-by merger
+            | reverse
+    }
 }
 
 # Tab-completer for local branch names (used by diff-copy / git clear --ignore).
@@ -113,34 +111,35 @@ export def "git authors" [
     if ($until | is-not-empty) { $flags = ($flags | append ["--until" $until]) }
     let extra = $flags
 
-    step --tick 0 $"Reading commit log for (ansi cyan)($branch_ref)(ansi reset)"
-    let raw = (^git log $branch_ref --numstat --pretty=format:"%H|%aN" ...$extra | complete)
+    let raw = (with-spinner $"Reading commit log for (ansi cyan)($branch_ref)(ansi reset)" {||
+        ^git log $branch_ref --numstat --pretty=format:"%H|%aN" ...$extra | complete
+    })
     if $raw.exit_code != 0 {
-        clear-status
         print $"(ansi red_bold)✗(ansi reset) git log failed: ($raw.stderr | str trim)"
         return
     }
 
-    step --tick 2 "Parsing commit numstats"
-    let commits = (parse-numstat-log $raw.stdout)
+    let commits = (with-spinner "Parsing commit numstats" {||
+        parse-numstat-log $raw.stdout
+    })
 
-    step --tick 4 "Aggregating per author"
-    let by_author = ($commits
-        | group-by author --to-table
-        | each {|g|
-            {
-                author: $g.author
-                commits: ($g.items | length)
-                files: ($g.items | get files | math sum)
-                added: ($g.items | get added | math sum)
-                deleted: ($g.items | get deleted | math sum)
-                net: (($g.items | get added | math sum) - ($g.items | get deleted | math sum))
+    let by_author = (with-spinner "Aggregating per author" {||
+        $commits
+            | group-by author --to-table
+            | each {|g|
+                {
+                    author: $g.author
+                    commits: ($g.items | length)
+                    files: ($g.items | get files | math sum)
+                    added: ($g.items | get added | math sum)
+                    deleted: ($g.items | get deleted | math sum)
+                    net: (($g.items | get added | math sum) - ($g.items | get deleted | math sum))
+                }
             }
-        }
-        | sort-by commits
-        | reverse)
+            | sort-by commits
+            | reverse
+    })
 
-    clear-status
     if $all { $by_author } else { $by_author | first $top }
 }
 
@@ -164,19 +163,18 @@ export def "git diff-copy" [
     let current_branch = (git branch --show-current | str trim)
     let target = ($target_branch | default $current_branch)
 
-    step --tick 0 $"Computing diff (ansi cyan)($base_branch)(ansi reset) (ansi dark_gray)→(ansi reset) (ansi cyan)($target)(ansi reset)"
-    let diff = (^git diff $"($base_branch)..($target)")
+    let diff = (with-spinner $"Computing diff (ansi cyan)($base_branch)(ansi reset) (ansi dark_gray)→(ansi reset) (ansi cyan)($target)(ansi reset)" {||
+        ^git diff $"($base_branch)..($target)"
+    })
     let lines_total = ($diff | lines | length)
     let files_changed = ($diff | lines | where $it =~ '^diff --git' | length)
 
-    step --tick 2 "Copying to clipboard"
-    $diff | pbcopy
-
     if $files_changed == 0 {
-        clear-status
         print $"(ansi yellow_bold)⚠(ansi reset) No differences between (ansi cyan)($base_branch)(ansi reset) and (ansi cyan)($target)(ansi reset)."
         return
     }
+
+    $diff | pbcopy
 
     done $"Copied (ansi cyan)($base_branch)(ansi reset) (ansi dark_gray)→(ansi reset) (ansi cyan)($target)(ansi reset) to clipboard (ansi dark_gray)\(($files_changed) files, ($lines_total) lines\)(ansi reset)."
 }
@@ -287,19 +285,18 @@ export def --wrapped "git clear" [
         return
     }
 
-    for it in ($branches_to_delete | enumerate) {
-        let branch = $it.item
-        step --tick ($it.index * 2) $"Deleting (ansi yellow)($branch)(ansi reset)"
-        let worktree = (git worktree list --porcelain
-            | split row "\n\n"
-            | where ($it =~ $"branch refs/heads/($branch)")
-            | if ($in | is-empty) { "" } else { $in | first })
-        if ($worktree | is-not-empty) {
-            let wt_path = ($worktree | lines | first | str replace "worktree " "")
-            step --tick ($it.index * 2 + 1) $"Removing worktree (ansi dark_gray)($wt_path)(ansi reset)"
-            git worktree remove --force $wt_path out+err> /dev/null
+    with-spinner $"Deleting ($branches_to_delete | length) branch\(es\)" {||
+        for branch in $branches_to_delete {
+            let worktree = (git worktree list --porcelain
+                | split row "\n\n"
+                | where ($it =~ $"branch refs/heads/($branch)")
+                | if ($in | is-empty) { "" } else { $in | first })
+            if ($worktree | is-not-empty) {
+                let wt_path = ($worktree | lines | first | str replace "worktree " "")
+                git worktree remove --force $wt_path out+err> /dev/null
+            }
+            git branch -D $branch out+err> /dev/null
         }
-        git branch -D $branch out+err> /dev/null
     }
     done $"Deleted ($branches_to_delete | length) branch\(es\)."
 }

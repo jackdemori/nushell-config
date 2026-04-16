@@ -30,3 +30,23 @@ export def clear-status [] {
 export def fmt-path [p: string] {
     $p | str replace -r $"^($env.HOME)" "~"
 }
+
+# Run `work` in the foreground while a spinner animates `msg` in the
+# background. Returns whatever `work` returns. The status line is cleared
+# on exit, leaving the terminal ready for a follow-up `done` or regular
+# output. If you need exit_code/stdout/stderr from an external command,
+# wrap the body with `| complete` inside the closure.
+export def with-spinner [msg: string, work: closure] {
+    let spinner = job spawn {
+        mut tick = 0
+        loop {
+            step $msg --tick $tick
+            sleep 100ms
+            $tick = ($tick + 1)
+        }
+    }
+    let result = do $work
+    job kill $spinner
+    clear-status
+    $result
+}

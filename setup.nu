@@ -195,6 +195,6 @@ def main [] {
     ] | any {|c| $c }
 
     if $changed {
-        print $"\n  (ansi dark_gray)run(ansi reset) (ansi cyan)exec nu(ansi reset) (ansi dark_gray)to reload(ansi reset)"
+        print $"\n(ansi dark_gray)run(ansi reset) (ansi cyan)reload(ansi reset) (ansi dark_gray)to pick up changes(ansi reset)"
     }
 }
