@@ -59,7 +59,9 @@ else
     trap 'rm -rf "$tmp"' EXIT
 
     note "downloading ${REPO}@${BRANCH}..."
-    curl -fsSL "$ARCHIVE_URL" | tar -xz -C "$tmp"
+    # Force POSIX locale so bsdtar doesn't emit `Failed to set default locale`
+    # when the invoking shell has no LANG/LC_* set (common under curl|bash).
+    curl -fsSL "$ARCHIVE_URL" | LC_ALL=C tar -xz -C "$tmp"
 
     src="$(find "$tmp" -maxdepth 1 -mindepth 1 -type d | head -n 1)"
     [ -d "$src" ] || fail "archive extraction failed (no extracted directory found)"
