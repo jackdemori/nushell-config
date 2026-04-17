@@ -168,6 +168,19 @@ $env.DOTNET_NOLOGO = true"]
     true
 }
 
+# Query the user's actual login shell from Directory Services.
+# `$env.SHELL` is whatever the *current* terminal launched — often stale
+# (e.g. reads /bin/zsh in a zsh-launched Ghostty session even after chsh
+# set nu as the default). dscl reads the DS record itself, which is what
+# `chsh` updates, so this matches what the next login will see.
+def current-login-shell [] {
+    let r = (do { ^dscl . -read $"/Users/($env.USER)" UserShell } | complete)
+    if $r.exit_code != 0 { return "" }
+    $r.stdout
+        | str trim
+        | str replace --regex '^UserShell:\s*' ''
+}
+
 # Returns true if chsh was run (default shell changed).
 def install-default-shell [] {
     let nu_path = (["/opt/homebrew/bin/nu" "/usr/local/bin/nu"]
@@ -178,7 +191,7 @@ def install-default-shell [] {
         return false
     }
 
-    let current = ($env.SHELL? | default "")
+    let current = (current-login-shell)
     if $current == $nu_path {
         ok "shell" $"already default — (ansi cyan)($nu_path)(ansi reset)"
         return false
@@ -192,9 +205,8 @@ def install-default-shell [] {
 
     # `chsh -s <shell>` (no username arg) updates only the invoking user's
     # Directory Services record on macOS. It does not touch /etc/passwd or
-    # any system-wide default. Apps that spawn a shell use $SHELL, which
-    # each GUI session sets from this per-user record — other users on the
-    # machine remain on their existing shell.
+    # any system-wide default. Other users on the machine keep their own
+    # shell — we queried the same record above via `dscl . -read`.
     ^chsh -s $nu_path
     ok "shell" $"default set to (ansi cyan)($nu_path)(ansi reset) — new terminal to apply"
     true
