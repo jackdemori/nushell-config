@@ -133,49 +133,71 @@ def read-global-json [] {
     }
 }
 
+# True when the `dotnet` binary is on PATH.
+def dotnet-available [] {
+    (which dotnet | is-not-empty)
+}
+
+# Print a one-time warning pointing the user at PATH and DOTNET_ROOT. Used
+# when a subcommand is invoked but dotnet isn't resolvable — the command
+# still runs (filesystem discovery works), but NuGet scanning and global.json
+# resolution are skipped.
+def warn-dotnet-missing [] {
+    print --stderr ""
+    print --stderr $"(ansi yellow_bold)⚠ dotnet command not found(ansi reset)"
+    print --stderr $"  (ansi dark_gray)SDK/runtime discovery under(ansi reset) (ansi cyan)/usr/local/share/dotnet(ansi reset) (ansi dark_gray)still works,(ansi reset)"
+    print --stderr $"  (ansi dark_gray)but NuGet locals and global.json resolution will be skipped.(ansi reset)"
+    print --stderr ""
+    print --stderr "  Check:"
+    print --stderr $"    (ansi cyan)which dotnet(ansi reset)           (ansi dark_gray)# binary on PATH?(ansi reset)"
+    print --stderr $"    (ansi cyan)echo \$env.DOTNET_ROOT(ansi reset)  (ansi dark_gray)# runtime location set?(ansi reset)"
+    print --stderr ""
+}
+
 # Run `dotnet --version` from a clean dir so global.json doesn't influence the answer.
 # `complete` captures stdout/stderr/exit-code so dotnet's error spam stays silent.
+# Returns null if dotnet isn't installed or the command fails.
 def host-default-sdk [] {
+    if not (dotnet-available) { return null }
     let r = (do { cd /tmp; ^dotnet --version } | complete)
     if $r.exit_code == 0 { $r.stdout | str trim } else { null }
 }
 
 def cwd-active-sdk [] {
+    if not (dotnet-available) { return null }
     let r = (^dotnet --version | complete)
     if $r.exit_code == 0 { $r.stdout | str trim } else { null }
 }
 
 # ─── safety: which paths must never be removed (without --force) ───────────
 
+# Protected set: the single latest SDK, the single latest runtime, and
+# anything matching a global.json-pinned version. Everything else is
+# deletable without --force.
 def protected-paths [bundles: list] {
-    let sdks = ($bundles | where type == "sdk")
     step --tick 4 "Computing safety set"
-    let host = (host-default-sdk)
-    let active = (cwd-active-sdk)
     let global = (read-global-json)
     clear-status
 
+    let sdks = ($bundles | where type == "sdk")
+    let runtimes = ($bundles | where type == "runtime")
+
     mut keep = []
 
-    let by_band = (
-        $sdks
-        | insert _band {|s| $"($s.parsed.major).($s.parsed.minor).($s.parsed.band)" }
-        | group-by _band --to-table
-    )
-    let band_latests = ($by_band | each {|g| $g.items | sort-bundles --desc | first })
-    $keep = ($keep | append $band_latests)
+    let latest_sdk = ($sdks | sort-bundles --desc | first)
+    if $latest_sdk != null {
+        $keep = ($keep | append $latest_sdk)
+    }
 
-    if $host != null {
-        $keep = ($keep | append ($sdks | where version == $host))
+    let latest_runtime = ($runtimes | sort-bundles --desc | first)
+    if $latest_runtime != null {
+        $keep = ($keep | append $latest_runtime)
     }
-    if $active != null and $active != $host {
-        $keep = ($keep | append ($sdks | where version == $active))
-    }
-    if $global != null and ($global.version != null) {
-        let pinned = (parse-version $global.version)
-        if $pinned != null {
-            let same_band = ($sdks | where {|s| ($s.parsed.major == $pinned.major) and ($s.parsed.minor == $pinned.minor) and ($s.parsed.band == $pinned.band) })
-            $keep = ($keep | append $same_band)
+
+    if $global != null and (($global.version? | default null) != null) {
+        let pinned = ($sdks | where version == $global.version)
+        if ($pinned | is-not-empty) {
+            $keep = ($keep | append $pinned)
         }
     }
 
@@ -363,7 +385,9 @@ def maybe-default-all [opts: record, versions: list, sdk: bool, runtime: bool, n
 # ─── nuget locals ──────────────────────────────────────────────────────────
 
 # Parse `dotnet nuget locals all --list` output into [{name, path}].
+# Returns [] if dotnet isn't available or the call fails.
 def get-nuget-locations [] {
+    if not (dotnet-available) { return [] }
     let r = (^dotnet nuget locals all --list | complete)
     if $r.exit_code != 0 { return [] }
     $r.stdout
@@ -580,6 +604,7 @@ export def "dotnet purge list" [
     --runtime                                           # Show runtimes only
     --nuget                                             # Show NuGet locals only
 ] {
+    if not (dotnet-available) { warn-dotnet-missing }
     show-global-json-banner
     let bundles = (load-bundles --sdk=$sdk --runtime=$runtime --nuget=$nuget)
     let filtered = if ($names | is-empty) { $bundles } else { $bundles | where version in $names }
@@ -602,6 +627,7 @@ export def "dotnet purge dry-run" [
     --nuget                                             # NuGet locals only
     --force                                             # Show even protected bundles as removable
 ] {
+    if not (dotnet-available) { warn-dotnet-missing }
     show-global-json-banner
     let raw_opts = (opts-from-flags $all $all_below $all_but $all_but_latest $all_lower_patches $all_previews $all_previews_but_latest $major_minor)
     let opts = (maybe-default-all $raw_opts $versions $sdk $runtime $nuget)
@@ -675,6 +701,7 @@ export def "dotnet purge remove" [
     --force                                             # Bypass safety check
     --yes(-y)                                           # Skip confirmation prompt
 ] {
+    if not (dotnet-available) { warn-dotnet-missing }
     show-global-json-banner
     let raw_opts = (opts-from-flags $all $all_below $all_but $all_but_latest $all_lower_patches $all_previews $all_previews_but_latest $major_minor)
     let opts = (maybe-default-all $raw_opts $versions $sdk $runtime $nuget)
@@ -759,6 +786,10 @@ export def "dotnet purge remove" [
     }
 
     if ($nuget_targets | is-not-empty) {
+        if not (dotnet-available) {
+            invalid $"Cannot clear NuGet locals — (ansi yellow)dotnet(ansi reset) not on PATH."
+            return
+        }
         for t in ($nuget_targets | enumerate) {
             step --tick ($t.index + 2) $"Clearing NuGet (ansi cyan)($t.item.version)(ansi reset)"
             let r = (^dotnet nuget locals $t.item.version --clear | complete)

@@ -37,6 +37,15 @@ command -v nu    >/dev/null 2>&1 || fail "nushell not installed. Run: brew insta
 command -v curl  >/dev/null 2>&1 || fail "curl not found"
 command -v tar   >/dev/null 2>&1 || fail "tar not found"
 command -v rsync >/dev/null 2>&1 || fail "rsync not found"
+command -v brew  >/dev/null 2>&1 || fail "brew not found. Install Homebrew first: https://brew.sh"
+
+# Install optional dependencies that the config relies on.
+# `alerter` — macOS notification CLI used by the `notify` command in
+# modules/macos (and for the setup-complete notification below).
+if ! command -v alerter >/dev/null 2>&1; then
+    note "installing alerter (macOS notifications)..."
+    brew install vjeantet/tap/alerter
+fi
 
 # If $TARGET is a git checkout, pull. Otherwise (missing, or a tarball
 # install from an earlier run), download a fresh tarball and rsync it in.

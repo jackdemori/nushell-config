@@ -35,6 +35,14 @@ def fail [label: string, msg: string] {
     error make { msg: $"(ansi red_bold)✗(ansi reset) (pad $label)  ($msg)" }
 }
 
+# Send a native macOS notification via alerter if available.
+# Silent no-op when alerter is missing (install.sh installs it on first run).
+def notify-success [] {
+    if (which alerter | is-not-empty) {
+        ^alerter --title "Nushell Config" --message "Setup complete" --sound default --timeout 5 out+err> /dev/null
+    }
+}
+
 # Compute prefix needed so appended content is separated by one blank line.
 def append-prefix [existing: string]: nothing -> string {
     if ($existing | is-empty) {
@@ -182,8 +190,37 @@ def install-default-shell [] {
         $"($nu_path)\n" | ^sudo tee -a /etc/shells | ignore
     }
 
+    # `chsh -s <shell>` (no username arg) updates only the invoking user's
+    # Directory Services record on macOS. It does not touch /etc/passwd or
+    # any system-wide default. Apps that spawn a shell use $SHELL, which
+    # each GUI session sets from this per-user record — other users on the
+    # machine remain on their existing shell.
     ^chsh -s $nu_path
     ok "shell" $"default set to (ansi cyan)($nu_path)(ansi reset) — new terminal to apply"
+    true
+}
+
+# Spawn a fresh login nu, ask it to exit, and observe what happens.
+# `--login` is required — without it nu skips env.nu/config.nu entirely.
+# The login startup parses env.nu, config.nu, and (transitively) init.nu,
+# so any syntax or resolution error surfaces here. We print nushell's own
+# error output — file path + line number + snippet — and guide the user
+# to the three files that could be at fault.
+def check-configs [] {
+    let result = (do { ^nu --login -c "exit 0" } | complete)
+    if $result.exit_code == 0 { return false }
+
+    let editor = ($env.EDITOR? | default "code")
+    print --stderr ""
+    print --stderr $"(ansi red_bold)✗(ansi reset) (pad "check")  nushell reports errors when starting with your config:"
+    print --stderr ""
+    print --stderr ($result.stderr | str trim)
+    print --stderr ""
+    print --stderr "  Fix with:"
+    print --stderr $"    (ansi cyan)($editor) ($nu.config-path)(ansi reset)"
+    print --stderr $"    (ansi cyan)($editor) ($nu.env-path)(ansi reset)"
+    print --stderr $"    (ansi cyan)($editor) ~/.config/nushell/init.nu(ansi reset)"
+    print --stderr ""
     true
 }
 
@@ -194,7 +231,10 @@ def main [] {
         (install-default-shell)
     ] | any {|c| $c }
 
-    if $changed {
-        print $"\n(ansi dark_gray)run(ansi reset) (ansi cyan)reload(ansi reset) (ansi dark_gray)to pick up changes(ansi reset)"
+    let has_errors = (check-configs)
+
+    if $changed and not $has_errors {
+        print $"\n(ansi dark_gray)run(ansi reset) (ansi cyan)exec nu(ansi reset) (ansi dark_gray)to pick up changes(ansi reset)"
+        notify-success
     }
 }
