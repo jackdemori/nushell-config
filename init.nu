@@ -10,6 +10,7 @@ use modules/ulid *
 use modules/world-time
 use modules/macos *
 use modules/brew *
+use modules/fnm *
 use modules/self *
 
 # Reload this config and all modules in-place (keeps the terminal, replaces the shell process).
