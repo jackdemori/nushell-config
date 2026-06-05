@@ -32,7 +32,27 @@ def "nu-complete fnm resolve-engines" [] {
     [true, false]
 }
 
+# Static subcommand completer — prevents nu from falling back to filesystem
+# completion when `fnm ` is typed.
+def "nu-complete fnm subcommands" [] {
+    [
+        {value: "list-remote",  description: "List all remote Node.js versions"}
+        {value: "list",         description: "List all locally installed Node.js versions"}
+        {value: "install",      description: "Install a new Node.js version"}
+        {value: "use",          description: "Change the active Node.js version"}
+        {value: "env",          description: "Print and set up required env vars for fnm"}
+        {value: "completions",  description: "Print shell completions to stdout"}
+        {value: "alias",        description: "Alias a version to a common name"}
+        {value: "unalias",      description: "Remove an alias definition"}
+        {value: "default",      description: "Set a version as the default version"}
+        {value: "current",      description: "Print the current Node.js version"}
+        {value: "exec",         description: "Run a command within fnm context"}
+        {value: "uninstall",    description: "Uninstall a Node.js version"}
+    ]
+}
+
 export extern "fnm" [
+    command?: string@"nu-complete fnm subcommands" #Subcommand to run
     --node-dist-mirror: string
     --fnm-dir: path
     --log-level: string@"nu-complete fnm log-level"

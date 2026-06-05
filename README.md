@@ -36,16 +36,44 @@ All steps are idempotent; executing the script multiple times is entirely safe.
 install.sh        single-step bootstrap fetched via curl | bash
 setup.nu          wires the downloaded files into the system
 init.nu           sourced from the primary config.nu on every shell launch
+tests.nu          top-level test runner — discovers modules/*/tests.nu
 modules/
-  brew/           brew helpers
+  brew/           brew completions + export/import Brewfile helpers
   docker/         docker completions
   dotnet/         dotnet completions + dotnet uninstall-all
-  git/            git completions + right prompt
+  fnm/            fnm completions + automatic version switching on cd
+  git/            git completions + right prompt + log/histogram helpers
   macos/          macOS utilities
+  self/           self update + self config
   ui/             shared output helpers (colours, spinner, status icons)
   ulid/           ULID generator
   world-time/     world-clock helpers
 ```
+
+## Completions
+
+The five CLI modules (`brew`, `docker`, `dotnet`, `fnm`, `git`) declare nushell `export extern` signatures so tab completion shows subcommands and flags with one-line descriptions inline. Two conventions keep the experience consistent and fast:
+
+- **Static subcommand completers on every parent.** A completer like `nu-complete brew subcommands` returns a literal list of `{value, description}` records — no live `^brew commands` invocation. This is what prevents `brew <TAB>` from falling back to filesystem completion and keeps tab response instant.
+- **Comprehensive per-command flags.** Each leaf extern lists every long flag the CLI accepts, with the `# description` comment surfaced in the completion menu. Optional-value flags (those documented as `--X[=<value>]`) are declared as bare switches — declaring them with `: string` would force nu's parser to require a value and break `--X | next-pipe` usage.
+
+## Tests
+
+Each completion module has a `tests.nu` next to its `completions.nu`. Tests parse the live CLI's `--help` output and assert every flag the CLI advertises is in our extern, plus subcommand discovery to catch new commands that future CLI releases add.
+
+Run the full suite:
+
+```nu
+nu tests.nu
+```
+
+…or a single module:
+
+```nu
+nu modules/git/tests.nu
+```
+
+Each test result prints `✓` / `✗` per command. The suite currently exercises 376 tests across the five completion modules in ~30s.
 
 ## Regenerating the environment block
 

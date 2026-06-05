@@ -286,6 +286,82 @@ def "nu-complete git subcommands" [] {
   | uniq-by value
 }
 
+# Static subcommand completers for git command groups — prevents nu from
+# falling back to filesystem completion on parent externs (e.g. `git config `
+# or `git stash `).
+
+def "nu-complete git config subcommands" [] {
+  [
+    {value: "list",           description: "List all variables in the config files"}
+    {value: "get",            description: "Read the value of a config variable"}
+    {value: "set",            description: "Set the value of a config variable"}
+    {value: "unset",          description: "Remove a config variable"}
+    {value: "rename-section", description: "Rename a config section"}
+    {value: "remove-section", description: "Remove a config section"}
+    {value: "edit",           description: "Open the config file in $EDITOR"}
+  ]
+}
+
+def "nu-complete git bisect subcommands" [] {
+  [
+    {value: "start",     description: "Begin a bisection session"}
+    {value: "good",      description: "Mark commits as good (don't have the bug)"}
+    {value: "bad",       description: "Mark commits as bad (have the bug)"}
+    {value: "terms",     description: "Show or set the new/old terms used by bisect"}
+    {value: "skip",      description: "Skip commits that cannot be tested"}
+    {value: "next",      description: "Pick the next commit to test"}
+    {value: "reset",     description: "End the bisection and return to the original HEAD"}
+    {value: "visualize", description: "Show remaining candidate commits"}
+    {value: "replay",    description: "Replay a bisection log file"}
+    {value: "log",       description: "Print the bisection log to stdout"}
+    {value: "run",       description: "Bisect by running a test script on each commit"}
+  ]
+}
+
+def "nu-complete git stash subcommands" [] {
+  [
+    {value: "list",   description: "List stashes"}
+    {value: "show",   description: "Show the changes in a stash"}
+    {value: "drop",   description: "Drop a stash"}
+    {value: "pop",    description: "Apply a stash and drop it"}
+    {value: "apply",  description: "Apply a stash without dropping it"}
+    {value: "branch", description: "Create a new branch from a stash"}
+    {value: "push",   description: "Save changes to a new stash"}
+    {value: "save",   description: "Save changes to a new stash (legacy form)"}
+    {value: "clear",  description: "Drop all stashes"}
+    {value: "create", description: "Create a stash entry without storing it in refs"}
+    {value: "store",  description: "Store a stash created with `stash create`"}
+  ]
+}
+
+def "nu-complete git remote subcommands" [] {
+  [
+    {value: "add",           description: "Add a remote named NAME for the repository at URL"}
+    {value: "rename",        description: "Rename the remote OLD to NEW"}
+    {value: "remove",        description: "Remove the remote NAME"}
+    {value: "set-head",      description: "Set or delete the default branch for a remote"}
+    {value: "show",          description: "Show information about a remote"}
+    {value: "prune",          description: "Delete stale references for a remote"}
+    {value: "update",        description: "Fetch updates for a named set of remotes"}
+    {value: "set-branches",  description: "Change the list of tracked branches for a remote"}
+    {value: "get-url",       description: "Get the URL for a remote"}
+    {value: "set-url",       description: "Change URLs for a remote"}
+  ]
+}
+
+def "nu-complete git worktree subcommands" [] {
+  [
+    {value: "add",    description: "Create a new working tree"}
+    {value: "list",   description: "List details of each working tree"}
+    {value: "lock",   description: "Prevent a working tree from being pruned"}
+    {value: "move",   description: "Move a working tree to a new location"}
+    {value: "prune",  description: "Remove working tree information for missing directories"}
+    {value: "remove", description: "Remove a working tree"}
+    {value: "repair", description: "Repair working tree administrative files"}
+    {value: "unlock", description: "Unlock a working tree previously locked"}
+  ]
+}
+
 def "nu-complete git add" [] {
   nu-complete git files
 }
@@ -319,6 +395,7 @@ export extern "git checkout" [
   --overwrite-ignore                              # update ignored files (default)
   --patch(-p)                                     # select hunks interactively
   --pathspec-from-file: string                    # read pathspec from file
+  --pathspec-file-nul                             # pathspec elements separated with NUL character
   --progress                                      # force progress reporting
   --quiet(-q)                                     # suppress progress reporting
   --recurse-submodules                            # control recursive updating of submodules
@@ -341,8 +418,10 @@ export extern "git reset" [
   --pathspec-from-file: string                    # read pathspec from file
   --pathspec-file-nul                             # with --pathspec-from-file, pathspec elements are separated with NUL character
   --no-refresh                                    # skip refreshing the index after reset
-  --recurse-submodules: string                    # control recursive updating of submodules
+  --refresh                                       # opposite of --no-refresh
+  --recurse-submodules                            # control recursive updating of submodules (optional `=<reset>`)
   --no-recurse-submodules                         # don't recurse into submodules
+  --intent-to-add(-N)                             # record only the fact that removed paths will be added later
 ]
 
 # Download objects and refs from another repository
@@ -377,7 +456,7 @@ export extern "git fetch" [
   --no-tags(-n)                                 # Disable automatic tag following
   --refmap: string                              # Use this refspec to map the refs to remote-tracking branches
   --tags(-t)                                    # Fetch all tags
-  --recurse-submodules: string                  # Fetch new commits of populated submodules (yes/on-demand/no)
+  --recurse-submodules                          # Fetch new commits of populated submodules (optional `=<on-demand>`)
   --jobs(-j): int                               # Number of parallel children
   --no-recurse-submodules                       # Disable recursive fetching of submodules
   --set-upstream                                # Add upstream (tracking) reference
@@ -391,6 +470,11 @@ export extern "git fetch" [
   --no-show-forced-updates                      # Don't check if a branch is force-updated
   -4                                            # Use IPv4 addresses, ignore IPv6 addresses
   -6                                            # Use IPv6 addresses, ignore IPv4 addresses
+  --porcelain                                   # machine-readable output
+  --update-head-ok(-u)                          # allow updating of HEAD ref
+  --refetch                                     # re-fetch without negotiating common commits
+  --filter: string                              # object filtering
+  --stdin                                       # accept refspecs from stdin
 ]
 
 # Yield local branches and (if remote is specified) remote branches with colon prefix
@@ -451,17 +535,20 @@ export extern "git push" [
   --recurse-submodules: string                       # control recursive pushing of submodules
   --repo: string                                     # repository
   --set-upstream(-u)                                 # set upstream for git pull/status
-  --signed: string                                   # GPG sign the push
+  --signed                                           # GPG sign the push (optional `=<yes|no|if-asked>`)
   --tags                                             # push tags (can't be used with --all or --mirror)
   --thin                                             # use thin pack
   --verbose(-v)                                      # be more verbose
+  --branches                                         # alias of --all
+  --force-if-includes                                # require remote updates to be integrated locally
+  --verify                                           # opposite of --no-verify
 ]
 
 # Pull changes
 export extern "git pull" [
   remote?: string@"nu-complete git remotes",         # the name of the remote
   ...refs: string@"nu-complete git local branches",  # the branch / refspec
-  --rebase(-r): string@"nu-complete git pull rebase",    # rebase current branch on top of upstream after fetching
+  --rebase(-r)                                       # rebase current branch on top of upstream after fetching (optional `=<false|true|merges|interactive>`)
   --quiet(-q)                                        # suppress output during transfer and merge
   --verbose(-v)                                      # be more verbose
   --commit                                           # perform the merge and commit the result
@@ -473,7 +560,7 @@ export extern "git pull" [
   --no-ff                                            # create a merge commit in all cases
   --gpg-sign(-S)                                     # GPG-sign the resulting merge commit
   --no-gpg-sign                                      # do not GPG-sign the resulting merge commit
-  --log: int                                         # include log messages from merged commits
+  --log                                              # include log messages from merged commits (optional `=<n>`)
   --no-log                                           # do not include log messages from merged commits
   --signoff                                          # add Signed-off-by trailer
   --no-signoff                                       # do not add Signed-off-by trailer
@@ -503,11 +590,22 @@ export extern "git pull" [
   --unshallow                                        # convert a shallow repository to a complete one
   --update-shallow                                   # update .git/shallow with new refs
   --tags(-t)                                         # fetch all tags from the remote
-  --jobs(-j): int                                    # number of parallel children for fetching
+  --jobs(-j)                                         # number of parallel children for fetching (optional `=<n>`)
   --set-upstream                                     # add upstream (tracking) reference
   --upload-pack: string                              # specify non-default path for upload-pack on the remote
   --progress                                         # force progress status even if stderr is not a terminal
   --server-option(-o): string                        # transmit the given string to the server
+  --recurse-submodules                               # control for recursive fetching of submodules (optional `=<on-demand>`)
+  --ff-only                                          # abort if fast-forward is not possible
+  --force(-f)                                        # force overwrite of local branch
+  --prune(-p)                                        # prune remote-tracking branches no longer on remote
+  --dry-run                                          # dry run
+  --keep(-k)                                         # keep downloaded pack
+  --refmap: string                                   # specify fetch refmap
+  --ipv4(-4)                                         # use IPv4 addresses only
+  --ipv6(-6)                                         # use IPv6 addresses only
+  --negotiation-tip: string                          # report only objects reachable from this object
+  --show-forced-updates                              # check for forced-updates on all updated branches
 ]
 
 # Switch between branches and commits
@@ -530,6 +628,9 @@ export extern "git switch" [
   --quiet(-q)                                     # suppress feedback messages
   --recurse-submodules                            # update the contents of sub-modules
   --track(-t)                                     # set "upstream" configuration
+  --discard-changes                               # throw away local modifications
+  --conflict: string                              # conflict style (merge, diff3, or zdiff3)
+  --overwrite-ignore                              # update ignored files (default)
 ]
 
 # Apply the change introduced by an existing commit
@@ -542,6 +643,19 @@ export extern "git cherry-pick" [
   --continue                                    # Continue the operation in progress
   --abort                                       # Cancel the operation
   --skip                                        # Skip the current commit and continue with the rest of the sequence
+  --quit                                        # end revert or cherry-pick sequence
+  --cleanup: string                             # how to strip spaces and #comments from message
+  --commit                                      # opposite of --no-commit
+  --mainline(-m): int                           # select mainline parent
+  --rerere-autoupdate                           # update the index with reused conflict resolution if possible
+  --strategy: string                            # merge strategy
+  --strategy-option(-X): string                 # option for merge strategy
+  --gpg-sign(-S)                                # GPG sign commit
+  -x                                            # append commit name
+  --allow-empty                                 # preserve initially empty commits
+  --allow-empty-message                         # allow commits with empty messages
+  --keep-redundant-commits                      # deprecated: use --empty=keep instead
+  --empty: string                               # how to handle commits that become empty
 ]
 
 # Rebase the current branch
@@ -552,8 +666,42 @@ export extern "git rebase" [
   --abort                                     # abort rebase and reset HEAD to original branch
   --quit                                      # abort rebase but do not reset HEAD
   --interactive(-i)                           # rebase interactively with list of commits in editor
-  --onto?: string@"nu-complete git rebase"    # starting point at which to create the new commits
+  --onto: string@"nu-complete git rebase"     # starting point at which to create the new commits
   --root                                      # start rebase from root commit
+  --keep-base                                 # use the merge-base of upstream and branch as the current base
+  --no-verify                                 # allow pre-rebase hook to run
+  --verify                                    # opposite of --no-verify
+  --quiet(-q)                                 # be quiet, implies --no-stat
+  --verbose(-v)                               # display a diffstat of what changed upstream
+  --no-stat(-n)                               # do not show diffstat of what changed upstream
+  --stat                                      # opposite of --no-stat
+  --signoff                                   # add a Signed-off-by trailer to each commit
+  --committer-date-is-author-date             # make committer date match author date
+  --reset-author-date                         # ignore author date and use current date
+  -C: int                                     # passed to 'git apply'
+  --ignore-whitespace                         # ignore changes in whitespace
+  --whitespace: string                        # passed to 'git apply'
+  --force-rebase(-f)                          # cherry-pick all commits, even if unchanged
+  --no-ff                                     # cherry-pick all commits, even if unchanged
+  --ff                                        # opposite of --no-ff
+  --skip                                      # skip current patch and continue
+  --edit-todo                                 # edit the todo list during an interactive rebase
+  --show-current-patch                        # show the patch file being applied or merged
+  --apply                                     # use apply strategies to rebase
+  --merge(-m)                                 # use merging strategies to rebase
+  --rerere-autoupdate                         # update the index with reused conflict resolution if possible
+  --empty: string                             # how to handle commits that become empty
+  --autosquash                                # move commits that begin with squash!/fixup! under -i
+  --update-refs                               # update branches that point to commits that are being rebased
+  --gpg-sign(-S)                              # GPG-sign commits
+  --autostash                                 # automatically stash/stash pop before and after
+  --exec(-x): string                          # add exec lines after each commit of the editable list
+  --rebase-merges(-r)                         # try to rebase merges instead of skipping them (optional `=<mode>`)
+  --fork-point                                # use 'merge-base --fork-point' to refine upstream
+  --strategy(-s): string                      # use the given merge strategy
+  --strategy-option(-X): string               # pass the argument through to the merge strategy
+  --reschedule-failed-exec                    # automatically re-schedule any exec that fails
+  --reapply-cherry-picks                      # apply all changes, even those already present upstream
 ]
 
 # Merge from a branch
@@ -572,6 +720,25 @@ export extern "git merge" [
   -X: string@"nu-complete git merge strategy options"        # Option for merge strategy
   --verbose(-v)
   --help
+  --stat                                                     # show a diffstat at the end of the merge
+  --summary                                                  # synonym to --stat
+  --log                                                      # add entries from shortlog to merge commit message (optional `=<n>`)
+  --squash                                                   # create a single commit instead of doing a merge
+  --cleanup: string                                          # how to strip spaces and #comments from message
+  --ff-only                                                  # abort if fast-forward is not possible
+  --rerere-autoupdate                                        # update the index with reused conflict resolution if possible
+  --verify-signatures                                        # verify that the named commit has a valid GPG signature
+  --message(-m): string                                      # merge commit message (for a non-fast-forward merge)
+  --file(-F): path                                           # read message from file
+  --into-name: string                                        # use <name> instead of the real target
+  --quiet(-q)                                                # be more quiet
+  --allow-unrelated-histories                                # allow merging unrelated histories
+  --progress                                                 # force progress reporting
+  --gpg-sign(-S)                                             # GPG sign commit
+  --autostash                                                # automatically stash/stash pop before and after
+  --overwrite-ignore                                         # update ignored files (default)
+  --no-verify                                                # bypass pre-merge-commit and commit-msg hooks
+  --verify                                                   # opposite of --no-verify
 ]
 
 # List or change branches
@@ -598,49 +765,160 @@ export extern "git branch" [
   --contains: string@"nu-complete git commits all"               # show only branches that contain the specified commit
   --no-contains                                                  # show only branches that don't contain specified commit
   --track(-t)                                                    # when creating a branch, set upstream
+  --remotes(-r)                                                  # act on remote-tracking branches
+  -M                                                             # move/rename a branch, even if target exists
+  --omit-empty                                                   # do not output a newline after empty formatted refs
+  -C                                                             # copy a branch, even if target exists
+  --create-reflog                                                # create the branch's reflog
+  --force(-f)                                                    # force creation, move/rename, deletion
+  --column                                                       # list branches in columns
+  --sort: string                                                 # field name to sort on
+  --ignore-case(-i)                                              # sorting and filtering are case insensitive
+  --recurse-submodules                                           # recurse through submodules
+]
+
+# Get and set repository or global options
+export extern "git config" [
+  subcommand?: string@"nu-complete git config subcommands" # Config subcommand
 ]
 
 # List all variables set in config file, along with their values.
 export extern "git config list" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
+  --null(-z)                                          # terminate values with NUL byte
+  --name-only                                         # show variable names only
+  --show-origin                                       # show origin of config
+  --show-scope                                        # show scope of config
+  --show-names                                        # show config keys in addition to their values
+  --type(-t): string                                  # value is given this type
+  --bool                                              # value is "true" or "false"
+  --int                                               # value is decimal number
+  --bool-or-int                                       # value is --bool or --int
+  --bool-or-str                                       # value is --bool or string
+  --path                                              # value is a path (file or directory name)
+  --expiry-date                                       # value is an expiry date
+  --includes                                          # respect include directives on lookup
 ]
 
 # Emits the value of the specified key.
 export extern "git config get" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
+  --all                                               # return all values for multi-valued config options
+  --regexp                                            # interpret the name as a regular expression
+  --value: string                                     # show config with values matching the pattern
+  --fixed-value                                       # use string equality when comparing values to value pattern
+  --url: string                                       # show config matching the given URL
+  --null(-z)                                          # terminate values with NUL byte
+  --name-only                                         # show variable names only
+  --show-origin                                       # show origin of config
+  --show-scope                                        # show scope of config
+  --show-names                                        # show config keys in addition to their values
+  --type(-t): string                                  # value is given this type
+  --bool                                              # value is "true" or "false"
+  --int                                               # value is decimal number
+  --bool-or-int                                       # value is --bool or --int
+  --bool-or-str                                       # value is --bool or string
+  --path                                              # value is a path (file or directory name)
+  --expiry-date                                       # value is an expiry date
+  --includes                                          # respect include directives on lookup
+  --default: string                                   # use default value when missing entry
 ]
 
 # Set value for one or more config options.
 export extern "git config set" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
+  --type(-t): string                                  # value is given this type
+  --bool                                              # value is "true" or "false"
+  --int                                               # value is decimal number
+  --bool-or-int                                       # value is --bool or --int
+  --bool-or-str                                       # value is --bool or string
+  --path                                              # value is a path (file or directory name)
+  --expiry-date                                       # value is an expiry date
+  --all                                               # replace multi-valued config option with new value
+  --value: string                                     # show config with values matching the pattern
+  --fixed-value                                       # use string equality when comparing values to value pattern
+  --comment: string                                   # human-readable comment string
+  --append                                            # add a new line without altering any existing values
 ]
 
 # Unset value for one or more config options.
 export extern "git config unset" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
+  --all                                               # replace multi-valued config option with new value
+  --value: string                                     # show config with values matching the pattern
+  --fixed-value                                       # use string equality when comparing values to value pattern
 ]
 
 # Rename the given section to a new name.
 export extern "git config rename-section" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
 ]
 
 # Remove the given section from the configuration file.
 export extern "git config remove-section" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
 ]
 
 # Opens an editor to modify the specified config file
 export extern "git config edit" [
+  --global                                            # use global config file
+  --system                                            # use system config file
+  --local                                             # use repository config file
+  --worktree                                          # use per-worktree config file
+  --file(-f): path                                    # use given config file
+  --blob: string                                      # read config from given blob object
 ]
 
 # List or change tracked repositories
 export extern "git remote" [
+  subcommand?: string@"nu-complete git remote subcommands" # Remote subcommand
   --verbose(-v)                            # Show URL for remotes
 ]
 
 # Add a new tracked repository
 export extern "git remote add" [
+  --fetch(-f)                                          # fetch the remote branches
+  --tags                                               # import all tags and associated objects when fetching
+  --track(-t): string                                  # branch(es) to track
+  --master(-m): string                                 # master branch
+  --mirror                                             # set up remote as a mirror to push to or fetch from (optional `=<push|fetch>`)
 ]
 
 # Rename a tracked repository
 export extern "git remote rename" [
   remote: string@"nu-complete git remotes"             # remote to rename
   new_name: string                                     # new name for remote
+  --progress                                           # force progress reporting
 ]
 
 # Remove a tracked repository
@@ -651,12 +929,38 @@ export extern "git remote remove" [
 # Get the URL for a tracked repository
 export extern "git remote get-url" [
   remote: string@"nu-complete git remotes"             # remote to get URL for
+  --push                                               # query push URLs rather than fetch URLs
+  --all                                                # return all URLs
 ]
 
 # Set the URL for a tracked repository
 export extern "git remote set-url" [
   remote: string@"nu-complete git remotes"             # remote to set URL for
   url: string                                          # new URL for remote
+  --push                                               # manipulate push URLs
+  --add                                                # add new URL instead of replacing
+  --delete                                             # delete URLs matching the regex
+]
+
+# Set or delete the default branch for a remote
+export extern "git remote set-head" [
+  name: string@"nu-complete git remotes"               # remote name
+  branch?: string                                      # branch to set as HEAD
+  --auto(-a)                                           # query the remote for its HEAD
+  --delete(-d)                                         # delete the symbolic-ref HEAD
+]
+
+# Delete stale references for a remote
+export extern "git remote prune" [
+  name: string@"nu-complete git remotes"               # remote to prune
+  --dry-run(-n)                                        # show what would be pruned
+]
+
+# Change the list of tracked branches for a remote
+export extern "git remote set-branches" [
+  name: string@"nu-complete git remotes"               # remote to operate on
+  ...branches: string                                  # branches to track
+  --add                                                # add to the existing tracked branches
 ]
 
 # Show changes between commits, working tree etc
@@ -667,6 +971,25 @@ export extern "git diff" [
   --name-only                                          # only show names of changed files
   --name-status                                        # show changed files and kind of change
   --no-color                                           # disable color output
+  -z                                                   # output diff-raw with lines terminated with NUL
+  -p                                                   # output patch format
+  -u                                                   # synonym for -p
+  --patch-with-raw                                     # output both a patch and the diff-raw format
+  --stat                                               # show diffstat instead of patch
+  --numstat                                            # show numeric diffstat instead of patch
+  --patch-with-stat                                    # output a patch and prepend its diffstat
+  --full-index                                         # show full object name on index lines
+  --abbrev                                             # abbreviate object names in diff-tree header and diff-raw (optional `=<n>`)
+  -R                                                   # swap input file pairs
+  -B                                                   # detect complete rewrites
+  -M                                                   # detect renames
+  -C                                                   # detect copies
+  --find-copies-harder                                 # try unchanged files as candidate for copy detection
+  -l: int                                              # limit rename attempts up to <n> paths
+  -O: path                                             # reorder diffs according to the <file>
+  -S: string                                           # find filepair whose only one side contains the string
+  --pickaxe-all                                        # show all files diff when -S is used and hit is found
+  -a                                                   # treat all files as text
 ]
 
 # Commit changes
@@ -702,7 +1025,7 @@ export extern "git commit" [
   --only(-o)                                          # commit only specified paths
   --pathspec-from-file: string                        # read pathspec from file
   --pathspec-file-nul                                 # use NUL character for pathspec file
-  --untracked-files(-u): string                       # show untracked files
+  --untracked-files(-u)                               # show untracked files (optional `=<mode>`)
   --verbose(-v)                                       # show diff in commit message template
   --quiet(-q)                                         # suppress commit summary
   --dry-run                                           # show paths to be committed without committing
@@ -710,6 +1033,11 @@ export extern "git commit" [
   --no-status                                         # do not include git-status output
   --gpg-sign(-S)                                      # GPG-sign commit
   --no-gpg-sign                                       # do not GPG-sign commit
+  --interactive                                       # interactively add files
+  --patch(-p)                                         # interactively add changes
+  --ahead-behind                                      # compute full ahead/behind values
+  --no-post-rewrite                                   # bypass post-rewrite hook
+  --post-rewrite                                      # opposite of --no-post-rewrite
   ...pathspec: string                                 # commit files matching pathspec
 ]
 
@@ -719,6 +1047,15 @@ export extern "git log" [
   -U                                                  # show diffs
   --follow                                            # show history beyond renames (single file only)
   --grep: string                                      # show log entries matching supplied regular expression
+  --quiet(-q)                                         # suppress diff output
+  --source                                            # show source
+  --use-mailmap                                       # use mail map file
+  --mailmap                                           # alias of --use-mailmap
+  --clear-decorations                                 # clear all previously-defined decoration filters
+  --decorate-refs: string                             # only decorate refs that match <pattern>
+  --decorate-refs-exclude: string                     # do not decorate refs that match <pattern>
+  --decorate                                          # decorate options
+  -L: string                                          # trace the evolution of line range
 ]
 
 # Show or change the reflog
@@ -735,6 +1072,17 @@ export extern "git add" [
   --interactive(-i)                                   # add modified contents in the working tree interactively to the index
   --patch(-p)                                         # interactively choose hunks to stage
   --verbose(-v)                                       # be verbose
+  --update(-u)                                        # update tracked files
+  --renormalize                                       # renormalize EOL of tracked files (implies -u)
+  --intent-to-add(-N)                                 # record only the fact that the path will be added later
+  --ignore-removal                                    # ignore paths removed in the working tree (same as --no-all)
+  --refresh                                           # don't add, only refresh the index
+  --ignore-errors                                     # skip files which cannot be added because of errors
+  --ignore-missing                                    # check if even missing files are ignored in dry run
+  --sparse                                            # allow updating entries outside of the sparse-checkout cone
+  --chmod: string                                     # override the executable bit of the listed files (+|-)x
+  --pathspec-from-file: string                        # read pathspec from file
+  --pathspec-file-nul                                 # pathspec elements separated with NUL character
 ]
 
 # Delete file from the working tree and the index
@@ -743,6 +1091,11 @@ export extern "git rm" [
   --force(-f)                                          # override the up-to-date check
   --dry-run(-n)                                        # Don't actually remove any file(s)
   --cached                                             # unstage and remove paths only from the index
+  --quiet(-q)                                          # do not list removed files
+  --ignore-unmatch                                     # exit with a zero status even if nothing matched
+  --sparse                                             # allow updating entries outside of the sparse-checkout cone
+  --pathspec-from-file: string                         # read pathspec from file
+  --pathspec-file-nul                                  # pathspec elements separated with NUL character
 ]
 
 # Show the working tree status
@@ -751,17 +1104,42 @@ export extern "git status" [
   --short(-s)                                         # show status concisely
   --branch(-b)                                        # show branch information
   --show-stash                                        # show stash information
+  --ahead-behind                                      # compute full ahead/behind values
+  --porcelain                                         # machine-readable output (optional `=<version>`)
+  --long                                              # show status in long format (default)
+  --null(-z)                                          # terminate entries with NUL
+  --untracked-files(-u)                               # show untracked files (optional `=<mode>`)
+  --ignored                                           # show ignored files (optional `=<mode>`)
+  --ignore-submodules                                 # ignore changes to submodules (optional `=<when>`)
+  --column                                            # list untracked files in columns (optional `=<style>`)
+  --no-renames                                        # do not detect renames
+  --renames                                           # opposite of --no-renames
+  --find-renames(-M)                                  # detect renames (optional `=<n>` similarity index)
+]
+
+# Stash the changes in a dirty working directory away
+export extern "git stash" [
+  subcommand?: string@"nu-complete git stash subcommands" # Stash subcommand
 ]
 
 # Stash changes for later
 export extern "git stash push" [
   --patch(-p)                                         # interactively choose hunks to stash
+  --keep-index(-k)                                    # keep index
+  --staged(-S)                                        # stash staged changes only
+  --quiet(-q)                                         # quiet mode
+  --include-untracked(-u)                             # include untracked files in stash
+  --all(-a)                                           # include ignore files
+  --message(-m): string                               # stash message
+  --pathspec-from-file: string                        # read pathspec from file
+  --pathspec-file-nul                                 # pathspec elements separated with NUL character
 ]
 
 # Unstash previously stashed changes
 export extern "git stash pop" [
   stash?: string@"nu-complete git stash-list"          # stash to pop
   --index(-i)                                          # try to reinstate not only the working tree's changes, but also the index's ones
+  --quiet(-q)                                          # be quiet, only report errors
 ]
 
 # List stashed changes
@@ -772,21 +1150,95 @@ export extern "git stash list" [
 export extern "git stash show" [
   stash?: string@"nu-complete git stash-list"
   -U                                                  # show diff
+  --include-untracked(-u)                             # include untracked files in the stash
+  --only-untracked                                    # only show untracked files in the stash
 ]
 
 # Drop a stashed change
 export extern "git stash drop" [
   stash?: string@"nu-complete git stash-list"
+  --quiet(-q)                                   # be quiet, only report errors
+]
+
+# Apply a stash without dropping it
+export extern "git stash apply" [
+  stash?: string@"nu-complete git stash-list"
+  --index                                       # try to reinstate the index's changes too
+  --quiet(-q)                                   # be quiet, only report errors
+]
+
+# Create a new branch from a stash
+export extern "git stash branch" [
+  branchname: string                            # name for the new branch
+  stash?: string@"nu-complete git stash-list"   # stash to branch from
+]
+
+# Save the changes to a new stash (legacy form of push)
+export extern "git stash save" [
+  message?: string                              # message describing the stash
+  --patch(-p)                                   # interactively choose hunks
+  --staged(-S)                                  # stash only staged changes
+  --keep-index(-k)                              # keep the index untouched
+  --quiet(-q)                                   # quiet mode
+  --include-untracked(-u)                       # include untracked files
+  --all(-a)                                     # include ignored files
+  --message(-m): string                         # stash message
+]
+
+# Drop all stashes
+export extern "git stash clear" []
+
+# Create a stash entry without storing it in the stash ref
+export extern "git stash create" [
+  message?: string                              # message describing the stash
+]
+
+# Store a stash created with `stash create` into the stash ref
+export extern "git stash store" [
+  commit: string                                # commit produced by `stash create`
+  --message(-m): string                         # message describing the stash
+  --quiet(-q)                                   # be quiet
 ]
 
 # Create a new git repository
 export extern "git init" [
   --initial-branch(-b): string                         # initial branch name
+  --template: string                                   # directory from which templates will be used
+  --bare                                               # create a bare repository
+  --shared                                             # specify that the git repository is to be shared
+  --quiet(-q)                                          # be quiet
+  --separate-git-dir: string                           # separate git dir from working tree
+  --object-format: string                              # specify the hash algorithm to use
+  --ref-format: string                                 # specify the reference format to use
 ]
 
 # List or manipulate tags
 export extern "git tag" [
   --delete(-d): string@"nu-complete git tags"         # delete a tag
+  --list(-l)                                          # list tag names
+  -n                                                  # print lines of each tag message (optional `<n>`)
+  --verify(-v)                                        # verify tags
+  --annotate(-a)                                      # annotated tag, needs a message
+  --message(-m): string                               # tag message
+  --file(-F): path                                    # read message from file
+  --trailer: string                                   # add custom trailer(s)
+  --edit(-e)                                          # force edit of tag message
+  --sign(-s)                                          # annotated and GPG-signed tag
+  --cleanup: string                                   # how to strip spaces and #comments from message
+  --local-user(-u): string                            # use another key to sign the tag
+  --force(-f)                                         # replace the tag if exists
+  --create-reflog                                     # create a reflog
+  --column                                            # show tag list in columns
+  --contains: string                                  # print only tags that contain the commit
+  --no-contains: string                               # print only tags that don't contain the commit
+  --merged: string                                    # print only tags that are merged
+  --no-merged: string                                 # print only tags that are not merged
+  --omit-empty                                        # do not output a newline after empty formatted refs
+  --sort: string                                      # field name to sort on
+  --points-at: string                                 # print only tags of the object
+  --format: string                                    # format to use for the output
+  --color                                             # respect format colors (optional `=<when>`)
+  --ignore-case(-i)                                   # sorting and filtering are case insensitive
 ]
 
 # Prune all unreachable objects
@@ -795,6 +1247,12 @@ export extern "git prune" [
   --expire: string                                    # expire objects older than
   --progress                                          # show progress
   --verbose(-v)                                       # report all removed objects
+  --exclude-promisor-objects                          # limit traversal to objects outside promisor packfiles
+]
+
+# Use binary search to find the commit that introduced a bug
+export extern "git bisect" [
+  subcommand?: string@"nu-complete git bisect subcommands" # Bisect subcommand
 ]
 
 # Start a binary search to find the commit that introduced a bug
@@ -819,6 +1277,31 @@ export extern "git bisect skip" [
 export extern "git bisect reset" [
 ]
 
+# Show or set the new/old terms used by bisect
+export extern "git bisect terms" [
+  --term-good                                   # show the term used for the "good" state
+  --term-bad                                    # show the term used for the "bad" state
+]
+
+# Pick the next commit to test
+export extern "git bisect next" []
+
+# Show remaining bisect candidates
+export extern "git bisect visualize" []
+
+# Replay a bisection log file
+export extern "git bisect replay" [
+  logfile: path                                 # the log file to replay
+]
+
+# Print the bisection log to stdout
+export extern "git bisect log" []
+
+# Bisect by running a test script on each commit
+export extern "git bisect run" [
+  ...command: string                            # command and arguments to run
+]
+
 # Show help for a git subcommand
 export extern "git help" [
   command?: string@"nu-complete git subcommands"       # subcommand to show help for
@@ -826,6 +1309,7 @@ export extern "git help" [
 
 # git worktree
 export extern "git worktree" [
+  subcommand?: string@"nu-complete git worktree subcommands" # Worktree subcommand
   --help(-h)            # display the help message for this command
   ...args
 ]
@@ -845,6 +1329,8 @@ export extern "git worktree add" [
   --quiet(-q)           # suppress progress reporting
   --track               # set up tracking mode (see git-branch(1))
   --guess-remote        # try to match the new branch name with a remote-tracking branch
+  --orphan              # create unborn branch
+  --relative-paths      # use relative paths for worktrees
   ...args
 ]
 
@@ -875,6 +1361,7 @@ export extern "git worktree lock" [
 export extern "git worktree move" [
   --help(-h)            # display the help message for this command
   --force(-f)           # force move even if worktree is dirty or locked
+  --relative-paths      # use relative paths for worktrees
   ...args
 ]
 
@@ -898,6 +1385,12 @@ export extern "git worktree remove" [
 export extern "git worktree unlock" [
   worktree: string@"nu-complete worktree list"
   ...args
+]
+
+# Repair working tree administrative files
+export extern "git worktree repair" [
+  ...paths: path                                # specific worktrees to repair
+  --relative-paths                              # use relative paths for worktrees
 ]
 
 # clones a repo
@@ -939,6 +1432,15 @@ export extern "git clone" [
   --no-remote-submodules        # do not track submodules remote
   --separate-git-dir: string    # place the clone at =<git dir> and link it here
   --jobs(-j): int               # number of simultaneous submodules fetch
+  --checkout                    # opposite of --no-checkout
+  --hardlinks                   # opposite of --no-hardlinks
+  --recursive                   # alias of --recurse-submodules
+  --revision: string            # clone single revision and check out
+  --ref-format: string          # specify the reference format to use
+  --ipv4(-4)                    # use IPv4 addresses only
+  --ipv6(-6)                    # use IPv6 addresses only
+  --also-filter-submodules      # apply partial clone filters to submodules
+  --bundle-uri: string          # URI for downloading bundles before fetching from origin remote
   ...args
 ]
 
@@ -1016,6 +1518,10 @@ export extern "git grep" [
   --not                                 # Search for lines that does not match pattern.
   --all-match                           # When giving multiple pattern expressions combined with --or, this flag is specified to limit the match to files that have lines to match all of them.
   --quiet(-q)                           # Do not output matched lines; instead, exit with status 0 when there is a match and with non-zero status when there isn’t.
+  --index                               # opposite of --no-index
+  --fixed-strings(-F)                   # interpret patterns as fixed strings
+  --open-files-in-pager(-O): string     # show matching files in the pager
+  --ext-grep                            # allow calling of grep(1) (ignored by this build)
   ...pathspecs: string                  # Target pathspecs to limit the scope of the search.
 ]
 

@@ -3,6 +3,7 @@
 # `brew` installs them as auto-deps — so `brew uninstall <pkg> && brew autoremove`
 # properly cleans them up later.
 
+export use completions.nu *
 use ../ui [step done clear-status]
 
 def check-brew [] {
