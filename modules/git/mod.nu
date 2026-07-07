@@ -279,7 +279,7 @@ export def --wrapped "git clear" [
     if $preview { return }
 
     print ""
-    let answer = (input $"(ansi yellow)Continue? [y/N] (ansi reset)" | str downcase | str trim)
+    let answer = (input $"(ansi yellow)Continue? [y/N] (ansi reset)" | str lowercase | str trim)
     if $answer != "y" and $answer != "yes" {
         print $"(ansi yellow_bold)⚠(ansi reset) Aborted."
         return

@@ -15,7 +15,7 @@ def base32-encode [width: int]: int -> string {
 
 # Decode a Crockford base32 string to an integer
 def base32-decode []: string -> int {
-    let input = ($in | str upcase
+    let input = ($in | str uppercase
         | str replace --all 'I' '1'
         | str replace --all 'L' '1'
         | str replace --all 'O' '0')
@@ -83,7 +83,7 @@ export def "random ulid" [
 #   Generate and immediately parse a ULID
 #   > random ulid | parse ulid
 export def "parse ulid" []: string -> record {
-    let input = ($in | str trim | str upcase)
+    let input = ($in | str trim | str uppercase)
 
     if ($input | str length) != 26 {
         error make { msg: $"Invalid ULID: expected 26 characters, got ($input | str length)" }

@@ -32,7 +32,7 @@ def get-timezone-list [--force-refresh]: nothing -> list<string> {
 
 # Score and rank timezone matches for a query.
 def find-timezone [query: string, zones: list<string>]: nothing -> string {
-    let query_lower = ($query | str downcase)
+    let query_lower = ($query | str lowercase)
     let escaped = ($query | str replace --all --regex '([\[\]()*+?^$.|\\])' '\$1')
 
     # Exact match
@@ -47,8 +47,8 @@ def find-timezone [query: string, zones: list<string>]: nothing -> string {
         | str join ".*")
 
     let scored = $zones | each {|z|
-        let full_dist = ($z | str downcase | str distance $query_lower)
-        let loc_name = ($z | split row / | last | str downcase)
+        let full_dist = ($z | str lowercase | str distance $query_lower)
+        let loc_name = ($z | split row / | last | str lowercase)
         let loc_dist = ($loc_name | str distance $query_lower)
         let min_dist = [($full_dist) ($loc_dist)] | math min
 
