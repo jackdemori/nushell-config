@@ -46,6 +46,25 @@ def sort-bundles [--desc] {
     if $desc { $s | reverse } else { $s }
 }
 
+# Keep the newest bundle independently for each install architecture. A version
+# installed in both the native root and the x64 root is two valid installs, not
+# an older duplicate of itself.
+def drop-latest-per-type-and-arch [] {
+    $in
+    | insert _type_arch {|b| $"($b.type)-($b.arch)" }
+    | group-by _type_arch --to-table
+    | each {|g| $g.items | sort-bundles --desc | skip 1 }
+    | flatten
+}
+
+def latest-per-type-and-arch [] {
+    $in
+    | insert _type_arch {|b| $"($b.type)-($b.arch)" }
+    | group-by _type_arch --to-table
+    | each {|g| $g.items | sort-bundles --desc | first }
+    | compact
+}
+
 # ─── bundle discovery ──────────────────────────────────────────────────────
 
 def scan-versions [dir: path] {
@@ -171,7 +190,7 @@ def cwd-active-sdk [] {
 
 # ─── safety: which paths must never be removed (without --force) ───────────
 
-# Protected set: the single latest SDK, the single latest runtime, and
+# Protected set: the latest SDK and runtime for each architecture, and
 # anything matching a global.json-pinned version. Everything else is
 # deletable without --force.
 def protected-paths [bundles: list] {
@@ -184,15 +203,8 @@ def protected-paths [bundles: list] {
 
     mut keep = []
 
-    let latest_sdk = ($sdks | sort-bundles --desc | first)
-    if $latest_sdk != null {
-        $keep = ($keep | append $latest_sdk)
-    }
-
-    let latest_runtime = ($runtimes | sort-bundles --desc | first)
-    if $latest_runtime != null {
-        $keep = ($keep | append $latest_runtime)
-    }
+    $keep = ($keep | append ($sdks | latest-per-type-and-arch))
+    $keep = ($keep | append ($runtimes | latest-per-type-and-arch))
 
     if $global != null and (($global.version? | default null) != null) {
         let pinned = ($sdks | where version == $global.version)
@@ -263,14 +275,17 @@ def show-selectors-help [--sdk, --runtime, --nuget] {
     print --stderr $"  (ansi yellow)--major-minor <X.Y>         (ansi reset)Everything in this major.minor band"
     print --stderr $"  (ansi yellow)<version> [<version> ...]   (ansi reset)Explicit version numbers"
     print --stderr ""
-    print --stderr $"(ansi default_bold)Filters:(ansi reset)"
+    print --stderr $"(ansi default_bold)Required target types for dry-run / remove:(ansi reset)"
     print --stderr $"  (ansi yellow)--sdk                       (ansi reset)SDKs only"
     print --stderr $"  (ansi yellow)--runtime                   (ansi reset)Runtimes only"
     print --stderr $"  (ansi yellow)--nuget                     (ansi reset)NuGet locals only \(implies --all if used alone\)"
 }
 
 # Validate inputs. Returns null if valid, else a user-facing error string.
-def validate-selector [opts: record, versions: list] {
+def validate-selector [opts: record, versions: list, sdk: bool, runtime: bool, nuget: bool] {
+    if not ($sdk or $runtime or $nuget) {
+        return "A target type is required. Add --sdk, --runtime, and/or --nuget."
+    }
     let count = (
         [$opts.all,
          ($opts.all_below | is-not-empty),
@@ -318,12 +333,12 @@ def apply-selector [versions: list, opts: record] {
         return ($bundles | where {|b| not ($b.version in $exclude) })
     }
     if $opts.all_but_latest {
-        return ($bundles | sort-bundles --desc | skip 1)
+        return ($bundles | drop-latest-per-type-and-arch)
     }
     if $opts.all_lower_patches {
         let by_band = (
             $bundles
-            | insert _band {|b| $"($b.type)-($b.parsed.major).($b.parsed.minor).($b.parsed.band)" }
+            | insert _band {|b| $"($b.type)-($b.arch)-($b.parsed.major).($b.parsed.minor).($b.parsed.band)" }
             | group-by _band --to-table
         )
         return ($by_band | each {|g| $g.items | sort-bundles --desc | skip 1 } | flatten)
@@ -333,7 +348,7 @@ def apply-selector [versions: list, opts: record] {
     }
     if $opts.all_previews_but_latest {
         let p = ($bundles | where {|b| $b.parsed.preview })
-        return ($p | sort-bundles --desc | skip 1)
+        return ($p | drop-latest-per-type-and-arch)
     }
     if ($opts.major_minor | is-not-empty) {
         let parts = ($opts.major_minor | split row ".")
@@ -571,7 +586,7 @@ def show-docs [] {
     print $"  (ansi yellow)--major-minor <X.Y>         (ansi reset)Everything in this major.minor band"
     print $"  (ansi yellow)<version> [<version> ...]   (ansi reset)Explicit version numbers"
     print ""
-    print $"(ansi default_bold)Filters:(ansi reset)"
+    print $"(ansi default_bold)Required target types for dry-run / remove:(ansi reset)"
     print $"  (ansi yellow)--sdk                       (ansi reset)SDKs only"
     print $"  (ansi yellow)--runtime                   (ansi reset)Shared runtimes only \(NETCore + AspNetCore + host/fxr\)"
     print $"  (ansi yellow)--nuget                     (ansi reset)NuGet locals only \(global-packages, http-cache, temp, plugins-cache\)"
@@ -632,7 +647,7 @@ export def "dotnet purge dry-run" [
     let raw_opts = (opts-from-flags $all $all_below $all_but $all_but_latest $all_lower_patches $all_previews $all_previews_but_latest $major_minor)
     let opts = (maybe-default-all $raw_opts $versions $sdk $runtime $nuget)
 
-    let err = (validate-selector $opts $versions)
+    let err = (validate-selector $opts $versions $sdk $runtime $nuget)
     if $err != null {
         invalid $err
         show-selectors-help --sdk=$sdk --runtime=$runtime --nuget=$nuget
@@ -641,14 +656,6 @@ export def "dotnet purge dry-run" [
 
     let candidates = (load-bundles --sdk=$sdk --runtime=$runtime --nuget=$nuget | apply-selector $versions $opts)
 
-    let no_type_filter = (not ($sdk or $runtime or $nuget))
-    if ($versions | length) > 0 and $no_type_filter {
-        let ambiguous = ($versions | where {|v| ($candidates | where version == $v | get type | uniq | length) > 1 })
-        if ($ambiguous | is-not-empty) {
-            invalid $"Ambiguous version\(s\): (ansi yellow)($ambiguous | str join ', ')(ansi reset) — matches more than one type. Add (ansi yellow)--sdk(ansi reset), (ansi yellow)--runtime(ansi reset), or (ansi yellow)--nuget(ansi reset) to disambiguate."
-            return
-        }
-    }
     let blocked_paths = (protected-paths (discover-bundles))
     let blocked = ($candidates | where {|c| ($c.paths | any {|p| $p in $blocked_paths }) })
     let safe = ($candidates | where {|c| not ($c.paths | any {|p| $p in $blocked_paths }) })
@@ -706,7 +713,7 @@ export def "dotnet purge remove" [
     let raw_opts = (opts-from-flags $all $all_below $all_but $all_but_latest $all_lower_patches $all_previews $all_previews_but_latest $major_minor)
     let opts = (maybe-default-all $raw_opts $versions $sdk $runtime $nuget)
 
-    let err = (validate-selector $opts $versions)
+    let err = (validate-selector $opts $versions $sdk $runtime $nuget)
     if $err != null {
         invalid $err
         show-selectors-help --sdk=$sdk --runtime=$runtime --nuget=$nuget
@@ -715,14 +722,6 @@ export def "dotnet purge remove" [
 
     let candidates = (load-bundles --sdk=$sdk --runtime=$runtime --nuget=$nuget | apply-selector $versions $opts)
 
-    let no_type_filter = (not ($sdk or $runtime or $nuget))
-    if ($versions | length) > 0 and $no_type_filter {
-        let ambiguous = ($versions | where {|v| ($candidates | where version == $v | get type | uniq | length) > 1 })
-        if ($ambiguous | is-not-empty) {
-            invalid $"Ambiguous version\(s\): (ansi yellow)($ambiguous | str join ', ')(ansi reset) — matches more than one type. Add (ansi yellow)--sdk(ansi reset), (ansi yellow)--runtime(ansi reset), or (ansi yellow)--nuget(ansi reset) to disambiguate."
-            return
-        }
-    }
     if ($candidates | is-empty) {
         print --stderr $"(ansi dark_gray)Nothing matches this selector.(ansi reset)"
         return
@@ -800,7 +799,13 @@ export def "dotnet purge remove" [
         }
     }
 
-    let freed = ($nuget_targets | get size | math sum)
+    # SDK/runtime-only removals have no NuGet records (and therefore no `size`
+    # column). Avoid evaluating `get size` on that empty table after deletion.
+    let freed = if ($nuget_targets | is-empty) {
+        0
+    } else {
+        $nuget_targets | get size | math sum
+    }
     let freed_str = if $freed > 0 { $" freeing (ansi cyan)($freed | into filesize)(ansi reset)" } else { "" }
     done $"Removed ($target | length) bundle\(s\)($freed_str)."
 }
