@@ -97,13 +97,15 @@ def install-brew-env [] {
     let end_marker = "# ──────────────────────────────────────────────────────"
     let existing = if ($target | path exists) { open --raw $target } else { "" }
 
-    # zsh's `eval $(brew shellenv)` also invokes macOS path_helper, which
-    # assembles PATH from /etc/paths + /etc/paths.d/* — so we get the full
-    # system PATH without hardcoding machine-specific entries. We also ask
-    # zsh to resolve the dotnet binary (in its freshly-set PATH) so we can
-    # derive DOTNET_ROOT from it.
-    let script = 'eval "$("$BREW" shellenv zsh)"; echo "$PATH"; command -v dotnet || echo ""'
-    let out = (with-env { BREW: $brew } { ^zsh -c $script } | lines)
+    # Rebuild PATH the way a fresh zsh login does: ~/.zshenv, then macOS
+    # path_helper (/etc/paths + /etc/paths.d/*, e.g. the .NET installer's
+    # entry), then `brew shellenv`. path_helper is called explicitly because
+    # current `brew shellenv` no longer runs it. zsh starts from a minimal
+    # PATH so transient entries from this shell (fnm multishell dirs, a
+    # stale previous block) aren't baked in. We also ask zsh to resolve the
+    # dotnet binary in that PATH so we can derive DOTNET_ROOT from it.
+    let script = 'eval "$(/usr/libexec/path_helper -s)"; eval "$("$BREW" shellenv zsh)"; echo "$PATH"; command -v dotnet || echo ""'
+    let out = (with-env { BREW: $brew, PATH: "/usr/bin:/bin:/usr/sbin:/sbin" } { ^/bin/zsh -c $script } | lines)
     let path_raw = ($out | get 0)
     let dotnet_bin = ($out | get 1? | default "" | str trim)
 
