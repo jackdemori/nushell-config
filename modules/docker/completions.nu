@@ -61,6 +61,7 @@ def "nu-complete docker subcommands" [] {
         {value: "image",       description: "Manage images"}
         {value: "manifest",    description: "Manage Docker image manifests and lists"}
         {value: "network",     description: "Manage networks"}
+        {value: "pass",        description: "Manage local secrets (Docker Pass)"}
         {value: "plugin",      description: "Manage plugins"}
         {value: "system",      description: "Manage Docker"}
         {value: "volume",      description: "Manage volumes"}
@@ -414,6 +415,7 @@ export extern "docker container create" [
     --tmpfs: string                                     #Mount a tmpfs directory
     --tty(-t)                                           #Allocate a pseudo-TTY
     --ulimit: int                                       #Ulimit options (default [])
+    --umask: string                                     #Set umask for the container
     --use-api-socket                                    #Bind mount Docker API socket and required auth
     --user(-u): string                                  #Username or UID (format: <name|uid>[:<group|gid>])
     --userns: string                                    #User namespace to use
@@ -624,6 +626,7 @@ export extern "docker container run" [
     --tmpfs: string                                     #Mount a tmpfs directory
     --tty(-t)                                           #Allocate a pseudo-TTY
     --ulimit: int                                       #Ulimit options (default [])
+    --umask: string                                     #Set umask for the container
     --use-api-socket                                    #Bind mount Docker API socket and required auth
     --user(-u): string                                  #Username or UID (format: <name|uid>[:<group|gid>])
     --userns: string                                    #User namespace to use
@@ -727,6 +730,7 @@ export extern "docker image build" [
     --pull                                              #Always attempt to pull a newer version of the image
     --push                                              #Shorthand for "--output=type=registry"
     --quiet(-q)                                         #Suppress the build output and print image ID on success
+    --resource: string                                  #Resource limits for build containers (format: "memory=2g")
     --sbom: string                                      #Shorthand for "--attest=type=sbom"
     --secret: string                                    #Secret file to expose to the build (only if BuildKit enabled): id=mysecret,src=/local/secret
     --shm-size: int                                     #Shared memory size for build containers
@@ -1334,6 +1338,7 @@ export extern "docker create" [
     --tmpfs: string                                     #Mount a tmpfs directory
     --tty(-t)                                           #Allocate a pseudo-TTY
     --ulimit: int                                       #Ulimit options
+    --umask: string                                     #Set umask for the container
     --use-api-socket                                    #Bind mount Docker API socket and required auth
     --user(-u): string                                  #Username or UID
     --userns: string                                    #User namespace to use
@@ -1533,6 +1538,7 @@ export extern "docker run" [
     --tmpfs: string                                     #Mount a tmpfs directory
     --tty(-t)                                           #Allocate a pseudo-TTY
     --ulimit: int                                       #Ulimit options
+    --umask: string                                     #Set umask for the container
     --use-api-socket                                    #Bind mount Docker API socket and required auth
     --user(-u): string                                  #Username or UID
     --userns: string                                    #User namespace to use
@@ -1636,6 +1642,7 @@ export extern "docker build" [
     --pull                                              #Always attempt to pull all referenced images
     --push                                              #Shorthand for "--output=type=registry"
     --quiet(-q)                                         #Suppress the build output and print image ID on success
+    --resource: string                                  #Resource limits for build containers (format: "memory=2g")
     --sbom: string                                      #Shorthand for "--attest=type=sbom"
     --secret: string                                    #Secret to expose to the build
     --shm-size: int                                     #Shared memory size for build containers
@@ -1719,4 +1726,52 @@ export extern "docker save" [
     image?: string@"nu-complete docker images"
     --output(-o): string                                #Write to a file, instead of STDOUT
     --platform: string                                  #Save only the given platform(s)
+]
+
+def "nu-complete docker pass subcommands" [] {
+    [
+        {value: "get",     description: "Get a secret from a keystore"}
+        {value: "ls",      description: "List all secrets from local keychain"}
+        {value: "plugins", description: "Manage secrets engine plugins"}
+        {value: "rm",      description: "Remove secrets from local keychain"}
+        {value: "run",     description: "Run a command with `se://` environment references resolved"}
+        {value: "set",     description: "Set a secret"}
+    ]
+}
+
+# Manage local secrets (Docker Pass)
+export extern "docker pass" [
+    subcommand?: string@"nu-complete docker pass subcommands" #Pass subcommand
+]
+
+# Get a secret from a keystore
+export extern "docker pass get" [
+    name: string                                        #Secret name
+]
+
+# List all secrets from local keychain
+export extern "docker pass ls" []
+
+# Manage secrets engine plugins
+export extern "docker pass plugins" [
+    subcommand?: string                                 #Plugins subcommand (1password, disable, enable, ls)
+]
+
+# Remove secrets from local keychain
+export extern "docker pass rm" [
+    ...names: string                                    #Secret names
+    --all                                               #Remove all secrets
+]
+
+# Run a command with `se://` environment references resolved
+export extern "docker pass run" [
+    ...command: string                                  #Command and arguments (after --)
+    --env-file: string                                  #Read environment variables from a dotenv-formatted file (repeatable)
+]
+
+# Set a secret
+export extern "docker pass set" [
+    secret: string                                      #id[=value]
+    --force(-f)                                         #Overwrite existing secret if it already exists
+    --metadata: string                                  #Non-sensitive key=value metadata (repeatable)
 ]

@@ -3,7 +3,7 @@
 # /usr/local/share/dotnet on macOS. Detects global.json influence and
 # protects the active host SDK + every feature-band latest by default.
 
-use ../ui [step done clear-status]
+use ../ui [step done clear-status has-command]
 
 # ─── paths ──────────────────────────────────────────────────────────────────
 
@@ -154,7 +154,7 @@ def read-global-json [] {
 
 # True when the `dotnet` binary is on PATH.
 def dotnet-available [] {
-    (which dotnet | is-not-empty)
+    (has-command dotnet)
 }
 
 # Print a one-time warning pointing the user at PATH and DOTNET_ROOT. Used

@@ -4,19 +4,17 @@ Personal [nushell](https://www.nushell.sh/) configuration. This includes modules
 
 ## Install
 
-Prerequisites: [Homebrew](https://brew.sh/) and nushell (`brew install nushell`).
-
-Then:
+On a fresh Mac, run:
 
 `
 curl -fsSL https://raw.githubusercontent.com/jackdemori/nushell-config/main/install.sh | bash
 `
 
-That is all. The command downloads the repository tarball into `~/.config/nushell/`, then delegates to `setup.nu`. This script wires the components into the primary nushell configuration directory and establishes nu as the default login shell.
+That is all. The script installs [Homebrew](https://brew.sh/) if it is missing (you will be prompted for your password), then installs `nushell` and `alerter` via brew. It then downloads the repository tarball into `~/.config/nushell/` and delegates to `setup.nu`. This script wires the components into the primary nushell configuration directory and establishes nu as the default login shell.
 
 ## What gets set up
 
-**`install.sh`** downloads the files (avoiding the need for a full git clone) and invokes:
+**`install.sh`** installs Homebrew (if missing) plus `nushell` and `alerter`, downloads the files (avoiding the need for a full git clone) and invokes:
 
 **`setup.nu`**, which:
 
@@ -73,7 +71,7 @@ nu tests.nu
 nu modules/git/tests.nu
 ```
 
-Each test result prints `✓` / `✗` per command. The suite currently exercises 376 tests across the five completion modules in ~30s.
+Each test result prints `✓` / `✗` per command. The suite currently exercises 382 tests across the five completion modules in ~30s.
 
 ## Regenerating the environment block
 

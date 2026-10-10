@@ -4,10 +4,10 @@
 # properly cleans them up later.
 
 export use completions.nu *
-use ../ui [step done clear-status]
+use ../ui [step done clear-status has-command]
 
 def check-brew [] {
-    if (which brew | is-empty) {
+    if not (has-command brew) {
         print $"(ansi red_bold)✗(ansi reset) Homebrew isn't installed (or not on PATH)."
         return false
     }

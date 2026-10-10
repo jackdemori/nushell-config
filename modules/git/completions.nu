@@ -315,6 +315,7 @@ def "nu-complete git bisect subcommands" [] {
     {value: "replay",    description: "Replay a bisection log file"}
     {value: "log",       description: "Print the bisection log to stdout"}
     {value: "run",       description: "Bisect by running a test script on each commit"}
+    {value: "help",      description: "Show bisect usage"}
   ]
 }
 
@@ -328,6 +329,8 @@ def "nu-complete git stash subcommands" [] {
     {value: "branch", description: "Create a new branch from a stash"}
     {value: "push",   description: "Save changes to a new stash"}
     {value: "save",   description: "Save changes to a new stash (legacy form)"}
+    {value: "export", description: "Export stashes as a chain of commits"}
+    {value: "import", description: "Import stashes from a chain of commits"}
     {value: "clear",  description: "Drop all stashes"}
     {value: "create", description: "Create a stash entry without storing it in refs"}
     {value: "store",  description: "Store a stash created with `stash create`"}
@@ -394,6 +397,10 @@ export extern "git checkout" [
   --overlay                                       # use overlay mode (default)
   --overwrite-ignore                              # update ignored files (default)
   --patch(-p)                                     # select hunks interactively
+  --auto-advance                                  # auto advance to the next file when selecting hunks interactively
+  --no-auto-advance                               # do not auto advance to the next file when selecting hunks
+  --unified(-U): int                              # generate diffs with <n> lines context
+  --inter-hunk-context: int                       # show context between diff hunks up to <n> lines
   --pathspec-from-file: string                    # read pathspec from file
   --pathspec-file-nul                             # pathspec elements separated with NUL character
   --progress                                      # force progress reporting
@@ -413,6 +420,10 @@ export extern "git reset" [
   --merge                                         # reset HEAD, index and working tree
   --mixed                                         # reset HEAD and index
   --patch(-p)                                     # select hunks interactively
+  --auto-advance                                  # auto advance to the next file when selecting hunks interactively
+  --no-auto-advance                               # do not auto advance to the next file when selecting hunks
+  --unified(-U): int                              # generate diffs with <n> lines context
+  --inter-hunk-context: int                       # show context between diff hunks up to <n> lines
   --quiet(-q)                                     # be quiet, only report errors
   --soft                                          # reset only HEAD
   --pathspec-from-file: string                    # read pathspec from file
@@ -575,6 +586,8 @@ export extern "git pull" [
   --verify-signatures                                # verify the tip commit of the side branch being merged
   --no-verify-signatures                             # do not verify the tip commit of the side branch being merged
   --summary                                          # show a summary of the merge
+  --compact-summary                                  # show a compact-summary at the end of the merge
+  --no-compact-summary                               # do not show a compact-summary at the end of the merge
   --no-summary                                       # do not show a summary of the merge
   --autostash                                        # create a temporary stash entry before the operation
   --no-autostash                                     # do not create a temporary stash entry before the operation
@@ -676,6 +689,7 @@ export extern "git rebase" [
   --no-stat(-n)                               # do not show diffstat of what changed upstream
   --stat                                      # opposite of --no-stat
   --signoff                                   # add a Signed-off-by trailer to each commit
+  --trailer: string                           # add custom trailer(s)
   --committer-date-is-author-date             # make committer date match author date
   --reset-author-date                         # ignore author date and use current date
   -C: int                                     # passed to 'git apply'
@@ -722,6 +736,8 @@ export extern "git merge" [
   --help
   --stat                                                     # show a diffstat at the end of the merge
   --summary                                                  # synonym to --stat
+  --compact-summary                                          # show a compact-summary at the end of the merge
+  --no-compact-summary                                       # do not show a compact-summary at the end of the merge
   --log                                                      # add entries from shortlog to merge commit message (optional `=<n>`)
   --squash                                                   # create a single commit instead of doing a merge
   --cleanup: string                                          # how to strip spaces and #comments from message
@@ -1035,6 +1051,8 @@ export extern "git commit" [
   --no-gpg-sign                                       # do not GPG-sign commit
   --interactive                                       # interactively add files
   --patch(-p)                                         # interactively add changes
+  --unified(-U): int                                  # generate diffs with <n> lines context
+  --inter-hunk-context: int                           # show context between diff hunks up to <n> lines
   --ahead-behind                                      # compute full ahead/behind values
   --no-post-rewrite                                   # bypass post-rewrite hook
   --post-rewrite                                      # opposite of --no-post-rewrite
@@ -1071,6 +1089,10 @@ export extern "git add" [
   --force(-f)                                         # allow adding otherwise ignored files
   --interactive(-i)                                   # add modified contents in the working tree interactively to the index
   --patch(-p)                                         # interactively choose hunks to stage
+  --auto-advance                                      # auto advance to the next file when selecting hunks interactively
+  --no-auto-advance                                   # do not auto advance to the next file when selecting hunks
+  --unified(-U): int                                  # generate diffs with <n> lines context
+  --inter-hunk-context: int                           # show context between diff hunks up to <n> lines
   --verbose(-v)                                       # be verbose
   --update(-u)                                        # update tracked files
   --renormalize                                       # renormalize EOL of tracked files (implies -u)
@@ -1125,6 +1147,10 @@ export extern "git stash" [
 # Stash changes for later
 export extern "git stash push" [
   --patch(-p)                                         # interactively choose hunks to stash
+  --auto-advance                                      # auto advance to the next file when selecting hunks interactively
+  --no-auto-advance                                   # do not auto advance to the next file when selecting hunks
+  --unified(-U): int                                  # generate diffs with <n> lines context
+  --inter-hunk-context: int                           # show context between diff hunks up to <n> lines
   --keep-index(-k)                                    # keep index
   --staged(-S)                                        # stash staged changes only
   --quiet(-q)                                         # quiet mode
@@ -1177,6 +1203,10 @@ export extern "git stash branch" [
 export extern "git stash save" [
   message?: string                              # message describing the stash
   --patch(-p)                                   # interactively choose hunks
+  --auto-advance                                # auto advance to the next file when selecting hunks interactively
+  --no-auto-advance                             # do not auto advance to the next file when selecting hunks
+  --unified(-U): int                            # generate diffs with <n> lines context
+  --inter-hunk-context: int                     # show context between diff hunks up to <n> lines
   --staged(-S)                                  # stash only staged changes
   --keep-index(-k)                              # keep the index untouched
   --quiet(-q)                                   # quiet mode
@@ -1198,6 +1228,18 @@ export extern "git stash store" [
   commit: string                                # commit produced by `stash create`
   --message(-m): string                         # message describing the stash
   --quiet(-q)                                   # be quiet
+]
+
+# Export stashes to a ref or print the resulting commit
+export extern "git stash export" [
+  ...stashes: string@"nu-complete git stash-list"  # stashes to export (default: all)
+  --print                                       # print the object ID instead of writing it to a ref
+  --to-ref: string                              # save the data to the given ref
+]
+
+# Import stashes from a commit created by `stash export`
+export extern "git stash import" [
+  commit: string                                # commit produced by `stash export`
 ]
 
 # Create a new git repository
@@ -1301,6 +1343,9 @@ export extern "git bisect log" []
 export extern "git bisect run" [
   ...command: string                            # command and arguments to run
 ]
+
+# Show bisect usage
+export extern "git bisect help" []
 
 # Show help for a git subcommand
 export extern "git help" [
@@ -1449,6 +1494,8 @@ export extern "git restore" [
   --help(-h)                                    # Display the help message for this command
   --source(-s)                                  # Restore the working tree files with the content from the given tree
   --patch(-p)                                   # Interactively choose hunks to restore
+  --unified(-U): int                            # generate diffs with <n> lines context
+  --inter-hunk-context: int                     # show context between diff hunks up to <n> lines
   --worktree(-W)                                # Restore working tree (default if neither --worktree or --staged is used)
   --staged(-S)                                  # Restore index
   --quiet(-q)                                   # Quiet, suppress feedback messages

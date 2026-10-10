@@ -230,6 +230,7 @@ export extern "dotnet test" [
     --artifacts-path: path                              #The artifacts path for all output
     --diag(-d): path                                    #Enable verbose logging to the specified file
     --no-build                                          #Do not build the project before testing
+    --no-dependencies                                   #Do not build project-to-project references, only the specified project
     --no-restore                                        #Do not restore the project before building
     --collect: string                                   #Enable data collector for the test run
     --blame                                             #Run tests in blame mode
@@ -353,6 +354,7 @@ export extern "dotnet new install" [
     --add-source: string                                #Specify a NuGet source to use during install
     --nuget-source: string                              #Alias for --add-source
     --force                                             #Allow reinstalling an existing template package
+    --prerelease                                        #Allow prerelease template packages when no version is specified
     --verbosity(-v): string@"nu-complete dotnet verbosity" #Set the verbosity level
     --diagnostics(-d)                                   #Enable diagnostic output
 ]
@@ -643,11 +645,13 @@ export extern "dotnet reference add" [
     --framework(-f): string                             #Add the reference only for a specific framework
     --interactive                                       #Allow the command to stop and wait for user input
     --project: path                                     #The project file to operate on
+    --file: path                                        #The file-based app to operate on
 ]
 
 # List all project-to-project references
 export extern "dotnet reference list" [
     --project: path                                     #The project file to operate on
+    --file: path                                        #The file-based app to operate on
 ]
 
 # Remove a project-to-project reference
@@ -655,6 +659,7 @@ export extern "dotnet reference remove" [
     ...project_path: path                               #The project references to remove
     --framework(-f): string                             #Remove the reference only for a specific framework
     --project: path                                     #The project file to operate on
+    --file: path                                        #The file-based app to operate on
 ]
 
 # Provides additional NuGet commands

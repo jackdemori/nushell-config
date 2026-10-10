@@ -9,6 +9,7 @@
 # Requires: docker installed on PATH.
 
 use ./completions.nu *
+use ../ui [has-command]
 
 const UNIVERSAL = [--help -h]
 
@@ -254,7 +255,7 @@ def check-no-new-subcommands [parent: string] {
 }
 
 def main [] {
-    if (which docker | is-empty) {
+    if not (has-command docker) {
         print $"(ansi yellow_bold)⚠(ansi reset)  docker not on PATH; skipping coverage tests"
         return
     }

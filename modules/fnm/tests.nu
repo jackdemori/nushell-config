@@ -8,6 +8,7 @@
 # Requires: fnm installed on PATH.
 
 use ./completions.nu *
+use ../ui [has-command]
 
 const UNIVERSAL = [--help -h]
 
@@ -104,7 +105,7 @@ def check-no-new-subcommands [] {
 }
 
 def main [] {
-    if (which fnm | is-empty) {
+    if not (has-command fnm) {
         print $"(ansi yellow_bold)⚠(ansi reset)  fnm not on PATH; skipping coverage tests"
         return
     }

@@ -9,6 +9,7 @@
 # Requires: git installed on PATH.
 
 use ./completions.nu *
+use ../ui [has-command]
 
 const UNIVERSAL = [--help -h]
 
@@ -113,6 +114,7 @@ const COMMANDS = [
     "git bisect"
     "git bisect bad"
     "git bisect good"
+    "git bisect help"
     "git bisect log"
     "git bisect next"
     "git bisect replay"
@@ -145,6 +147,8 @@ const COMMANDS = [
     "git stash clear"
     "git stash create"
     "git stash drop"
+    "git stash export"
+    "git stash import"
     "git stash list"
     "git stash pop"
     "git stash push"
@@ -202,7 +206,7 @@ def check-no-new-subcommands [parent: string] {
 }
 
 def main [] {
-    if (which git | is-empty) {
+    if not (has-command git) {
         print $"(ansi yellow_bold)⚠(ansi reset)  git not on PATH; skipping coverage tests"
         return
     }

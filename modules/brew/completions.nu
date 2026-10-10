@@ -78,6 +78,9 @@ def "nu-complete brew subcommands" [] {
         {value: "postinstall",       description: "Re-run the post-install steps for a formula"}
         {value: "which-formula",     description: "Find the formula or tap that provides a binary"}
         {value: "readall",           description: "Read all formulae in the specified or all installed taps"}
+        {value: "vulns",             description: "Check formulae for known security vulnerabilities"}
+        {value: "sandbox-exec",      description: "Run a command in Homebrew's sandbox"}
+        {value: "as-brew-user",      description: "Run a brew command as the owner of HOMEBREW_PREFIX"}
         {value: "export",            description: "Write a portable Brewfile of user-requested packages"}
         {value: "import",            description: "Install every package listed in a Brewfile via brew bundle"}
     ]
@@ -155,6 +158,8 @@ export extern "brew install" [
     --verbose(-v)                                       #Print the verification and post-install steps
     --dry-run(-n)                                       #Show what would be installed but don't install
     --ask                                               #Ask for confirmation before downloading and installing
+    --yes(-y)                                           #Don't ask for confirmation before installing
+    --no-ask                                            #Don't ask for confirmation before installing
     --formula                                           #Treat all named arguments as formulae
     --formulae                                          #Treat all named arguments as formulae
     --ignore-dependencies                               #Skip installing dependencies (unsupported)
@@ -228,6 +233,8 @@ export extern "brew reinstall" [
     --force(-f)                                         #Skip prior-version checks before reinstalling
     --verbose(-v)                                       #Print verification and post-install steps
     --ask                                               #Ask for confirmation before reinstalling
+    --yes(-y)                                           #Don't ask for confirmation before reinstalling
+    --no-ask                                            #Don't ask for confirmation before reinstalling
     --formula                                           #Treat all named arguments as formulae
     --formulae                                          #Treat all named arguments as formulae
     --build-from-source(-s)                             #Compile from source even if a bottle is available
@@ -276,6 +283,8 @@ export extern "brew upgrade" [
     --minimum-version: string                           #Only upgrade if installed version is below this
     --min-version: string                               #Alias for --minimum-version
     --ask                                               #Ask for confirmation before upgrading
+    --yes(-y)                                           #Don't ask for confirmation before upgrading
+    --no-ask                                            #Don't ask for confirmation before upgrading
     --formula                                           #Treat all named arguments as formulae
     --formulae                                          #Treat all named arguments as formulae
     --build-from-source(-s)                             #Compile from source even if a bottle is available
@@ -331,6 +340,7 @@ export extern "brew list" [
     --pinned                                            #List only pinned packages
     --installed-on-request                              #List formulae installed on request
     --installed-as-dependency                           #List formulae installed as dependencies
+    --no-installed-on-request                           #List formulae not installed on request
     --poured-from-bottle                                #List formulae installed from a bottle
     --built-from-source                                 #List formulae compiled from source
     -1                                                  #One entry per line
@@ -461,6 +471,7 @@ export extern "brew deps" [
     --tree                                              #Show dependencies as a tree
     --prune                                             #Prune parts of the tree already seen
     --graph                                             #Show dependencies as a directed graph
+    --brewfile                                          #Use formulae and casks from a Brewfile (default ./Brewfile)
     --dot                                               #Show graph in DOT format
     --annotate                                          #Annotate build/test/implicit/optional/recommended
     --installed                                         #List dependencies for installed formulae only
@@ -602,6 +613,10 @@ export extern "brew link" [
     --dry-run(-n)                                       #Show what would be linked
     --force(-f)                                         #Allow keg-only formulae to be linked
     --HEAD                                              #Link the HEAD version
+    --formula                                           #Treat all named arguments as formulae
+    --formulae                                          #Treat all named arguments as formulae
+    --cask                                              #Treat all named arguments as casks
+    --casks                                             #Treat all named arguments as casks
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose
@@ -612,6 +627,10 @@ export extern "brew link" [
 export extern "brew unlink" [
     ...packages: string                                 #Installed formulae to unlink
     --dry-run(-n)                                       #Show what would be unlinked
+    --formula                                           #Treat all named arguments as formulae
+    --formulae                                          #Treat all named arguments as formulae
+    --cask                                              #Treat all named arguments as casks
+    --casks                                             #Treat all named arguments as casks
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose
@@ -652,6 +671,7 @@ export extern "brew trust" [
     --casks                                             #Trust the named cask
     --command                                           #Trust the named external command
     --commands                                          #Trust the named external command
+    --json: string                                      #Print trusted entries as JSON (v1)
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose
@@ -910,7 +930,7 @@ export extern "brew bundle dump" [
     --global(-g)                                        #Write the global Brewfile
     --install                                           #Run install before dumping dependencies
     --force(-f)                                         #Overwrite an existing Brewfile
-    --describe                                          #Annotate the Brewfile with package descriptions
+    --no-describe                                       #Don't add description comments above each line
     --no-restart                                        #Don't restart services after installing
     --all                                               #Include all dependency types
     --formula                                           #Dump formula entries
@@ -1070,6 +1090,8 @@ export extern "brew bundle exec" [
     --services                                          #Temporarily start services while executing
     --check                                             #Check Brewfile dependencies before running
     --no-secrets                                        #Attempt to remove secrets from the environment
+    --sandbox: path                                     #Run in Homebrew's sandbox, allowing writes to this path
+    --deny-network                                      #Deny network access from inside the sandbox
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose
@@ -1120,7 +1142,7 @@ export extern "brew bundle add" [
     --flatpak                                           #Add Flatpak package entries (Linux only)
     --krew                                              #Add Krew plugin entries
     --npm                                               #Add npm package entries
-    --describe                                          #Add a description comment above each line
+    --no-describe                                       #Don't add description comments above each line
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose
@@ -1327,6 +1349,8 @@ export extern "brew exec" [
     command: string                                     #Command to run
     ...args: string                                     #Arguments for the command
     --formulae: string                                  #Comma-separated formulae to install and add to PATH
+    --sandbox: path                                     #Run in Homebrew's sandbox, allowing writes to this path
+    --deny-network                                      #Deny network access from inside the sandbox
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose
@@ -1361,6 +1385,45 @@ export extern "brew readall" [
     --no-simulate                                       #Don't simulate other systems
     --os: string                                        #Operating system to simulate
     --arch: string                                      #CPU architecture to simulate
+    --debug(-d)                                         #Display debugging information
+    --quiet(-q)                                         #Make some output more quiet
+    --verbose(-v)                                       #Make some output more verbose
+    --help(-h)                                          #Show usage
+]
+
+# Check formulae for known security vulnerabilities (OSV.dev)
+export extern "brew vulns" [
+    ...formulae: string                                 #Formulae to check (default: all installed)
+    --deps(-d)                                          #Also check dependencies of named formulae
+    --no-ignore-patches                                 #Report vulnerabilities even when a patch resolves them
+    --brewfile                                          #Check formulae listed in a Brewfile (default ./Brewfile)
+    --fix-available                                     #Only report vulnerabilities with a released fix
+    --no-fix-available                                  #Only report vulnerabilities without a released fix
+    --fix-type: string                                  #Filter by fix type (released, patch, any, none, unreleased)
+    --list-skipped                                      #List packages skipped due to unsupported source URL
+    --severity(-s): string                              #Only report findings at or above (low, medium, high, critical)
+    --max-summary(-m): int                              #Truncate summaries to n characters (0 for no limit)
+    --json(-j)                                          #Output JSON
+    --debug                                             #Display debugging information
+    --quiet(-q)                                         #Make some output more quiet
+    --verbose(-v)                                       #Make some output more verbose
+    --help(-h)                                          #Show usage
+]
+
+# Run a command in Homebrew's sandbox
+export extern "brew sandbox-exec" [
+    writable_path: path                                 #Path the command may write to
+    ...command: string                                  #Command to run
+    --deny-network                                      #Deny network access from inside the sandbox
+    --debug(-d)                                         #Display debugging information
+    --quiet(-q)                                         #Make some output more quiet
+    --verbose(-v)                                       #Make some output more verbose
+    --help(-h)                                          #Show usage
+]
+
+# Run a Homebrew command as the owner of HOMEBREW_PREFIX
+export extern "brew as-brew-user" [
+    ...command: string                                  #Homebrew command and arguments to run
     --debug(-d)                                         #Display debugging information
     --quiet(-q)                                         #Make some output more quiet
     --verbose(-v)                                       #Make some output more verbose

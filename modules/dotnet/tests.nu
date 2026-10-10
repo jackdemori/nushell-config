@@ -9,6 +9,7 @@
 # Requires: dotnet SDK installed on PATH.
 
 use ./completions.nu *
+use ../ui [has-command]
 
 # Universal flags every dotnet command accepts — never required in externs.
 const UNIVERSAL = [--help -h -? /h /?]
@@ -215,7 +216,7 @@ const COMMANDS = [
 ]
 
 def main [] {
-    if (which dotnet | is-empty) {
+    if not (has-command dotnet) {
         print $"(ansi yellow_bold)⚠(ansi reset)  dotnet not on PATH; skipping coverage tests"
         return
     }

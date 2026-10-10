@@ -9,6 +9,7 @@
 # Requires: Homebrew installed on PATH.
 
 use ./completions.nu *
+use ../ui [has-command]
 
 const UNIVERSAL = [--help -h]
 
@@ -161,6 +162,9 @@ const COMMANDS = [
     "brew postinstall"
     "brew which-formula"
     "brew readall"
+    "brew vulns"
+    "brew sandbox-exec"
+    "brew as-brew-user"
 ]
 
 # Parents to walk for subcommand discovery. New entries added here will be
@@ -232,7 +236,7 @@ def check-no-new-subcommands [parent: string] {
 }
 
 def main [] {
-    if (which brew | is-empty) {
+    if not (has-command brew) {
         print $"(ansi yellow_bold)⚠(ansi reset)  brew not on PATH; skipping coverage tests"
         return
     }

@@ -6,9 +6,9 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/jackdemori/nushell-config/main/install.sh | bash
 #
-# Prerequisites on the target machine:
-#   - Homebrew installed
-#   - nushell installed (`brew install nushell`)
+# Works on a fresh Mac: installs Homebrew if missing, then the CLI tools the
+# config depends on (nushell, alerter), then wires everything up and
+# makes nu the default login shell.
 
 set -euo pipefail
 
@@ -33,19 +33,48 @@ note() { printf '%s%s%s\n'    "$CYAN"   "$*"     "$RESET"; }
 # Platform check — this installer is macOS-only.
 [ "$(uname -s)" = "Darwin" ] || fail "this installer is macOS-only (detected: $(uname -s))"
 
-command -v nu    >/dev/null 2>&1 || fail "nushell not installed. Run: brew install nushell"
 command -v curl  >/dev/null 2>&1 || fail "curl not found"
 command -v tar   >/dev/null 2>&1 || fail "tar not found"
 command -v rsync >/dev/null 2>&1 || fail "rsync not found"
-command -v brew  >/dev/null 2>&1 || fail "brew not found. Install Homebrew first: https://brew.sh"
 
-# Install optional dependencies that the config relies on.
-# `alerter` — macOS notification CLI used by the `notify` command in
-# modules/macos (and for the setup-complete notification below).
-if ! command -v alerter >/dev/null 2>&1; then
-    note "installing alerter (macOS notifications)..."
-    brew install vjeantet/tap/alerter
+# Homebrew. The official installer prompts (RETURN to continue, sudo
+# password), so its stdin is pointed at the terminal — under `curl | bash`
+# our own stdin is the script itself.
+find_brew() {
+    for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        [ -x "$b" ] && { echo "$b"; return 0; }
+    done
+    command -v brew 2>/dev/null
+}
+
+BREW="$(find_brew || true)"
+if [ -z "$BREW" ]; then
+    note "installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" < /dev/tty
+    BREW="$(find_brew || true)"
+    [ -n "$BREW" ] || fail "Homebrew install finished but brew binary not found"
+    ok "installed Homebrew"
 fi
+# Put brew (and everything it installs) on PATH for the rest of this script.
+eval "$("$BREW" shellenv)"
+
+# CLI tools the config relies on.
+#   nushell  — the shell itself
+#   alerter  — macOS notification CLI used by `notify` in modules/macos
+#              (and for the setup-complete notification)
+install_formula() {
+    local cmd="$1" formula="$2"
+    if command -v "$cmd" >/dev/null 2>&1; then
+        ok "$cmd already installed"
+    else
+        note "installing $formula..."
+        brew install "$formula"
+        ok "installed $formula"
+    fi
+}
+
+install_formula nu      nushell
+install_formula alerter vjeantet/tap/alerter
 
 # If $TARGET is a git checkout, pull. Otherwise (missing, or a tarball
 # install from an earlier run), download a fresh tarball and rsync it in.
