@@ -11,6 +11,7 @@ Shared helpers for user-facing output in nushell scripts. All functions print to
 | `clear-status` | Clear the progress line without leaving a marker                         |
 | `with-spinner` | Run a closure while an animated spinner ticks in the background          |
 | `fmt-path`     | Replace `$env.HOME` with `~` for compact path display                    |
+| `has-command`  | True if a binary is on `$env.PATH` (ignores `extern` completions)        |
 
 ## Two animation patterns
 

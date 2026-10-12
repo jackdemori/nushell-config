@@ -5,6 +5,8 @@
 #   2. Appends an auto-generated environment block to $nu.env-path
 #   3. Makes nu the default login shell (adds to /etc/shells, runs chsh)
 #
+# Creates the nushell config dir if it doesn't exist yet (fresh Mac).
+#
 # Usage:  nu ~/.config/nushell/setup.nu
 #
 # For a fresh machine, see install.sh in this directory — it downloads
@@ -239,6 +241,11 @@ def check-configs [] {
 }
 
 def main [] {
+    # On a fresh Mac nu hasn't been launched interactively yet, so its config
+    # dir (~/Library/Application Support/nushell) doesn't exist and `save`
+    # would fail.
+    mkdir ($nu.config-path | path dirname) ($nu.env-path | path dirname)
+
     let changed = [
         (install-init-source)
         (install-brew-env)
